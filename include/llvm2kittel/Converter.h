@@ -123,6 +123,16 @@ public:
         std::string index;
     };
     std::vector<ArrayInst> arrayInst;
+    struct StructInst{
+        std::string variable;
+        std::string instance;
+        int fieldAccessed;
+        int totalFields;
+    };
+    std::string lastArrayAccessed;
+    std::string lastIndexAccessed;
+    StructInst structInst;
+    void visitUIToFPInst(llvm::UIToFPInst &I);
     void visitSIToFPInst(llvm::SIToFPInst &I);
     void visitBinaryOperator(llvm::BinaryOperator &binaryOp);
     //</Negar>
