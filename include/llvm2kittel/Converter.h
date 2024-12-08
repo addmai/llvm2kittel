@@ -104,34 +104,38 @@ public:
 
     //<Negar>
     bool isEntryBlock = true;
-    bool hasUnreachableBlock = false;
-    std::vector<std::string> newVar;
-    std::vector<std::string> mulInst;
-    struct PhiInst{
+    //bool hasUnreachableBlock = false;
+    std::vector<std::string> mulInsts;
+    struct PhiInst {
         std::string basicBlock;
         std::string phiVar;
         std::string value;
     };
-    std::vector<PhiInst> phiInst;
-    std::vector<std::string> globalInst;
-    std::vector<std::string> oneDimArr;
-    std::vector<std::string> twoDimArr;
-    std::vector<std::string> twoDimSubArr;
-    struct ArrayInst{
+    std::vector<PhiInst> phiInsts;
+    std::vector<std::string> globalInsts;
+    std::vector<std::string> oneDimArrs;
+    std::vector<std::string> twoDimArrs;
+    std::vector<std::string> twoDimSubArrs;
+    struct GetElementPtrInst {
+        std::string variable;
+        std::string array;
+        std::string index; //Fixed-index or Variable-index
+    };
+    std::vector<GetElementPtrInst> getElementPtrInsts;
+    struct ArrayInst {
         std::string variable;
         std::string array;
         std::string index;
     };
-    std::vector<ArrayInst> arrayInst;
-    struct StructInst{
+    std::vector<ArrayInst> arrayInsts;
+    struct StructInst {
         std::string variable;
         std::string instance;
-        int fieldAccessed;
+        int accessedFieldId;
         int totalFields;
     };
-    std::string lastArrayAccessed;
-    std::string lastIndexAccessed;
-    StructInst structInst;
+    std::vector<StructInst> structInsts;
+
     void visitUIToFPInst(llvm::UIToFPInst &I);
     void visitSIToFPInst(llvm::SIToFPInst &I);
     void visitBinaryOperator(llvm::BinaryOperator &binaryOp);
