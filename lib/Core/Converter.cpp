@@ -188,15 +188,13 @@ void Converter::phase1(llvm::Function *function, std::set<llvm::Function *> &scc
             //    hasUnreachableBlock = true;
             //}
             for (llvm::Instruction &I : BB) {
-                if (llvm::PHINode *phi = llvm::dyn_cast<llvm::PHINode>(&I)) {
-                    if (phi->getType() == m_boolType || !phi->getType()->isIntegerTy())
-                    {
-                        std::string phiVar = phi->getName().str();
-                        for (unsigned i = 0; i < phi->getNumIncomingValues(); ++i) {
+                if (llvm::PHINode *phiNode = llvm::dyn_cast<llvm::PHINode>(&I)) {
+                    if (phiNode->getType() == m_boolType || !phiNode->getType()->isIntegerTy()) {
+                        std::string variable = phiNode->getName().str();
+                        for (unsigned i = 0; i < phiNode->getNumIncomingValues(); ++i) {
                             PhiInst phiInst;
-                            phiInst.phiVar = "v" + phiVar;
-                            phiInst.basicBlock = phi->getIncomingBlock(i)->getName().str();
-                            llvm::Value *value = phi->getIncomingValue(i);
+                            phiInst.variable = "v" + variable;
+                            llvm::Value *value = phiNode->getIncomingValue(i);
                             std::string valueStr;
                             if (value->hasName()) {
                                 valueStr = "v" + value->getName().str();
@@ -209,6 +207,7 @@ void Converter::phase1(llvm::Function *function, std::set<llvm::Function *> &scc
                                 valueStr = (valueStr.find(' ') != std::string::npos) ? valueStr.substr(spacePos + 1) : valueStr;
                             }
                             phiInst.value = valueStr;
+                            phiInst.basicBlock = phiNode->getIncomingBlock(i)->getName().str();
                             phiInsts.push_back(phiInst);
                         }
                     }
@@ -224,21 +223,8 @@ void Converter::phase1(llvm::Function *function, std::set<llvm::Function *> &scc
             if (varType->isArrayTy()) {
                 if (GV.isConstant()) {
                     // Define an array -> Globally -> One-dimensional -> 2
-                    llvm::Type *elementType = llvm::dyn_cast<llvm::ArrayType>(varType)->getElementType();
-                    std::string elementTypeStr;
-                    if (elementType->isIntegerTy(8)) { // i8 translates to "char"
-                        elementTypeStr = "char";
-                    } else if (elementType->isIntegerTy(32)) { // i32 translates to "int"
-                        elementTypeStr = "int";
-                    } else if (elementType->isIntegerTy(64)) { // i64 translates to "long"
-                        elementTypeStr = "long";
-                    } else if (elementType->isStructTy()){
-                        llvm::raw_string_ostream rso(elementTypeStr);
-                        elementType->print(rso);
-                        rso.flush();
-                        elementTypeStr = "v" + elementTypeStr;
-                    }
-                    globalInsts.push_back("v" + varName + " := nondet();");
+                    std::string arrayName = "v" + varName;
+                    globalInsts.push_back(arrayName + " := nondet();");
                     if (auto *dataArray = llvm::dyn_cast<llvm::ConstantDataArray>(const_cast<llvm::Constant *>(GV.getInitializer()))) {
                         if (dataArray->isString()) {
                             std::string dataArrayStr = dataArray->getAsString();
@@ -254,69 +240,25 @@ void Converter::phase1(llvm::Function *function, std::set<llvm::Function *> &scc
                                     default:
                                         break;
                                 }
-                                globalInsts.push_back("v" + varName + " := store_array(v" + varName + ", " + std::to_string(i) + ", " + value + ");");
+                                globalInsts.push_back(arrayName + " := store_array(" + arrayName + ", " + std::to_string(i) + ", " + value + ");");
                             }
                         }
                     }
-                    if (std::find(oneDimArrs.begin(), oneDimArrs.end(), "v" + varName) == oneDimArrs.end()) {
-                        oneDimArrs.push_back("v" + varName);
+                    if (std::find(oneDimArrs.begin(), oneDimArrs.end(), arrayName) == oneDimArrs.end()) {
+                        oneDimArrs.push_back(arrayName);
                     }
                 }
                 else {
-                    llvm::Type *elementType = llvm::dyn_cast<llvm::ArrayType>(varType)->getElementType();
-                    if (elementType->isStructTy()) {
-                        // Define a structure
-                        llvm::StructType *structInst = llvm::dyn_cast<llvm::StructType>(elementType);
-                        std::string structName = structInst->getName().str();
-                        std::string fieldsType;
-                        for (unsigned i = 0; i != structInst->getNumElements(); ++i) {
-                            llvm::Type *fieldType = structInst->getElementType(i);
-                            if (i != 0) {
-                                fieldsType = fieldsType + ", ";
-                            }
-                            if (fieldType->isIntegerTy(8)) { // i8 translates to "char"
-                                fieldsType = fieldsType+ "char";
-                            } else if (fieldType->isIntegerTy(32)) { // i32 translates to "int"
-                                fieldsType = fieldsType + "int";
-                            } else if (fieldType->isIntegerTy(64)) { // i64 translates to "long"
-                                fieldsType = fieldsType + "long";
-                            } else if (fieldType->isStructTy()){
-                                fieldsType = "v" + fieldsType;
-                            }
-                        }
-                        globalInsts.push_back("v" + structName + " := nondet();");
-
-                        // Define an array -> Globally -> One-dimensional -> 1 (elementType: struct)
-                        //if (globalVar.hasInitializer() && llvm::isa<llvm::ConstantAggregateZero>(const_cast<llvm::Constant *>(globalVar.getInitializer()))) {
-                        //    globalInsts.push_back("v" + varName + " := const_array(0);");
-                        //}
-                        //else {
-                            globalInsts.push_back("v" + varName + " := nondet();");
-                        //}
-                        if (std::find(oneDimArrs.begin(), oneDimArrs.end(), "v" + varName) == oneDimArrs.end()) {
-                            oneDimArrs.push_back("v" + varName);
-                        }
-                    }
-                    else {
-                        // Define an array -> Globally -> One-dimensional -> 1 (elementType: anything except struct)
-                        std::string elementTypeStr;
-                        if (elementType->isIntegerTy(8)) { // i8 translates to "char"
-                            elementTypeStr = "char";
-                        } else if (elementType->isIntegerTy(32)) { // i32 translates to "int"
-                            elementTypeStr = "int";
-                        } else if (elementType->isIntegerTy(64)) { // i64 translates to "long"
-                            elementTypeStr = "long";
-                        }
-                        //if (globalVar.hasInitializer() && llvm::isa<llvm::ConstantAggregateZero>(const_cast<llvm::Constant *>(globalVar.getInitializer()))) {
-                        //    globalInsts.push_back("v" + varName + " := const_array(0);");
-                        //}
-                        //else {
-                            globalInsts.push_back("v" + varName + " := nondet();");
-
-                        //}
-                        if (std::find(oneDimArrs.begin(), oneDimArrs.end(), "v" + varName) == oneDimArrs.end()) {
-                            oneDimArrs.push_back("v" + varName);
-                        }
+                    // Define an array -> Globally -> One-dimensional -> 1
+                    std::string arrayName = "v" + varName;
+                    //if (globalVar.hasInitializer() && llvm::isa<llvm::ConstantAggregateZero>(const_cast<llvm::Constant *>(globalVar.getInitializer()))) {
+                    //    globalInsts.push_back(arrayName + " := const_array(0);");
+                    //}
+                    //else {
+                    globalInsts.push_back("v" + varName + " := nondet();");
+                    //}
+                    if (std::find(oneDimArrs.begin(), oneDimArrs.end(), arrayName) == oneDimArrs.end()) {
+                        oneDimArrs.push_back(arrayName);
                     }
                 }
             }
@@ -951,7 +893,7 @@ void Converter::visitBB(llvm::BasicBlock *bb)
         std::cout << "FROM: " << (bb->getName().str()) << ";" << std::endl;
 
         //<Negar>
-        if(isEntryBlock == true){
+        if (isEntryBlock == true) {
             for (const std::string& globalInst : globalInsts) {
                 std::cout << globalInst << std::endl;
             }
@@ -1146,8 +1088,8 @@ void Converter::visitTerminatorInst(llvm::TerminatorInst &I)
             //<Negar>
             const std::string &basicBlock = I.getParent()->getName().str();
             auto myIt = std::find_if(phiInsts.begin(), phiInsts.end(), [&basicBlock](const PhiInst& phiInst) { return phiInst.basicBlock == basicBlock; });
-            if(myIt != phiInsts.end()){
-                std::cout << "var__temp_" << myIt->phiVar << " := " << myIt->value << ";" << std::endl;
+            if (myIt != phiInsts.end()) {
+                std::cout << "var__temp_" << myIt->variable << " := " << myIt->value << ";" << std::endl;
             }
             //</Negar>
 
@@ -1244,22 +1186,21 @@ void Converter::visitTerminatorInst(llvm::TerminatorInst &I)
 
                     //<Negar>
                     if (c->toT2String() == "nondet()") {
-                        if (llvm::FCmpInst *fcmpInst = llvm::dyn_cast<llvm::FCmpInst>(branchVal)) {
-                            if(fcmpInst->getPredicate() == llvm::CmpInst::FCMP_OGT) {
-                                std::string leftVar = fcmpInst->getOperand(0)->getName().str();
-                                std::string rightVar = fcmpInst->getOperand(1)->getName().str();
+                        if (llvm::FCmpInst *FCI = llvm::dyn_cast<llvm::FCmpInst>(branchVal)) {
+                            if(FCI->getPredicate() == llvm::CmpInst::FCMP_OGT) {
+                                std::string leftVar = FCI->getOperand(0)->getName().str();
+                                std::string rightVar = FCI->getOperand(1)->getName().str();
 
                                 std::string trueCondition = "v" + leftVar + " > v" + rightVar;
-                                std::string falseCondition = "v" + leftVar + " <= v" + rightVar;
-
+                                llvm::BasicBlock *trueBlock = branch->getSuccessor(0);
                                 std::cout << "FROM: " << (pBlock->getName().str()) << "_end;" << std::endl;
                                 std::cout << "assume(" << trueCondition << ");" << std::endl;
-                                llvm::BasicBlock *trueBlock = branch->getSuccessor(0);
                                 std::cout << "TO: " << (trueBlock->getName().str()) << ";" << std::endl << std::endl;
 
+                                std::string falseCondition = "v" + leftVar + " <= v" + rightVar;
+                                llvm::BasicBlock *falseBlock = branch->getSuccessor(1);
                                 std::cout << "FROM: " << (pBlock->getName().str()) << "_end;" << std::endl;
                                 std::cout << "assume(" << falseCondition << ");" << std::endl;
-                                llvm::BasicBlock *falseBlock = branch->getSuccessor(1);
                                 std::cout << "TO: " << (falseBlock->getName().str()) << ";" << std::endl;
                             }
                         }
@@ -2465,7 +2406,13 @@ void Converter::visitGetElementPtrInst(llvm::GetElementPtrInst &gepInst)
                     // Variable-index
                     index = "v" + arrayIndexOperand->getName().str();
                 }
-                std::cout << "v" << varName << " := select_array(v" << arrayName << ", " << index << ");" << std::endl;
+                llvm::Type *elementType = llvm::dyn_cast<llvm::ArrayType>(ptrType)->getElementType();
+                if (elementType->isIntegerTy(8) || elementType->isIntegerTy(32) || elementType->isIntegerTy(64)) { // char, int, or long
+                    std::cout << "v" << varName << " := " << index << ";" << std::endl;
+                }
+                else if (elementType->isStructTy()) { // struct
+                    std::cout << "v" << varName << " := select_array(v" << arrayName << ", " << index << ");" << std::endl;
+                }
                 getElementPtrInsts.push_back({"v" + varName, "v" + arrayName, index});
                 arrayInsts.push_back({"v" + varName, "v" + arrayName, index});
             }
@@ -2474,50 +2421,17 @@ void Converter::visitGetElementPtrInst(llvm::GetElementPtrInst &gepInst)
             if (gepInst.getNumOperands() == 3) {
                 // Access a field of a structure
                 std::string varName = gepInst.getName().str();
-                std::string structName = llvm::cast<llvm::StructType>(ptrType)->getName().str();
                 std::string structInstance = gepInst.getPointerOperand()->getName().str();
                 llvm::Value *accessedField = gepInst.getOperand(gepInst.getNumOperands() - 1);
                 int accessedFieldId = llvm::dyn_cast<llvm::ConstantInt>(accessedField)->getSExtValue();
                 int totalFields = llvm::cast<llvm::StructType>(ptrType)->getNumElements();
-                std::cout << "v" << varName << " := select_tuple(v" << structInstance << ", " << std::to_string(accessedFieldId) << ", " + std::to_string(totalFields) + ");" << std::endl;
                 structInsts.push_back({"v" + varName, "v" + structInstance, accessedFieldId, totalFields});
             }
             else {
                 //<second>
                 std::string basePoint = gepInst.getPointerOperand()->getName().str();
                 if (std::find(oneDimArrs.begin(), oneDimArrs.end(), "v" + basePoint) != oneDimArrs.end()) {
-                    // Access an element of an array -> One-dimensional -> Flexible access -> 1 (anything except struct)
-                    std::string varName = gepInst.getName().str();
-                    llvm::Value *arrayIndexOperand = gepInst.getOperand(gepInst.getNumOperands() - 1);
-                    std::string index;
-                    if (auto *constInt = llvm::dyn_cast<llvm::ConstantInt>(arrayIndexOperand)) {
-                        index = std::to_string(constInt->getSExtValue());
-                    }
-                    else {
-                        index = "v" + arrayIndexOperand->getName().str();
-                    }
-                    std::cout << "v" << varName << " := select_array(v" << basePoint << ", " << index << ");" << std::endl;
-                    arrayInsts.push_back({"v" + varName, "v" + basePoint, index});
-                }
-                else if (std::find(twoDimArrs.begin(), twoDimArrs.end(), "v" + basePoint) != twoDimArrs.end()) {
-                    // Access an element of an array -> Two-dimensional -> Row
-                    std::string varName = gepInst.getName().str();
-                    llvm::Value *arrayIndexOperand = gepInst.getOperand(gepInst.getNumOperands() - 1);
-                    std::string index;
-                    if (auto *constInt = llvm::dyn_cast<llvm::ConstantInt>(arrayIndexOperand)) {
-                        index = std::to_string(constInt->getSExtValue());
-                    }
-                    else {
-                        index = "v" + arrayIndexOperand->getName().str();
-                    }
-                    std::cout << "v" << varName << " := select_array(v" << basePoint << ", " << index << ");" << std::endl;
-                    if (std::find(twoDimSubArrs.begin(), twoDimSubArrs.end(), "v" + varName) == twoDimSubArrs.end()) {
-                        twoDimSubArrs.push_back("v" + varName);
-                    }
-                    arrayInsts.push_back({"v" + varName, "v" + basePoint, index});
-                }
-                else if (std::find(twoDimSubArrs.begin(), twoDimSubArrs.end(), "v" + basePoint) != twoDimSubArrs.end()) {
-                    // Access an element of an array -> Two-dimensional -> Column
+                    // Access an element of an array -> One-dimensional -> Flexible access -> 1 (struct)
                     std::string varName = gepInst.getName().str();
                     llvm::Value *arrayIndexOperand = gepInst.getOperand(gepInst.getNumOperands() - 1);
                     std::string index;
@@ -2531,7 +2445,7 @@ void Converter::visitGetElementPtrInst(llvm::GetElementPtrInst &gepInst)
                     arrayInsts.push_back({"v" + varName, "v" + basePoint, index});
                 }
                 else {
-                    // Access an element of an array -> One-dimensional -> Flexible access -> 2 (anything except struct)
+                    // Access an element of an array -> One-dimensional -> Flexible access -> 2 (struct)
                     std::string varName = gepInst.getName().str();
                     auto it = std::find_if(getElementPtrInsts.begin(), getElementPtrInsts.end(), [&basePoint](const GetElementPtrInst& getElementPtrInst) { return getElementPtrInst.variable == "v" + basePoint; });
                     std::string arrayName = it->array;
@@ -2564,10 +2478,10 @@ void Converter::visitGetElementPtrInst(llvm::GetElementPtrInst &gepInst)
                 else {
                     index = "v" + arrayIndexOperand->getName().str();
                 }
-                std::cout << "v" << varName << " := select_array(v" << basePoint << ", " << index << ");" << std::endl;
+                std::cout << "v" << varName << " := " << index << ";" << std::endl;
                 arrayInsts.push_back({"v" + varName, "v" + basePoint, index});
             }
-            else if (std::find(twoDimArrs.begin(), twoDimArrs.end(), "v" + basePoint) != twoDimArrs.end()) {
+            else if (std::find(twoDimOuterArrs.begin(), twoDimOuterArrs.end(), "v" + basePoint) != twoDimOuterArrs.end()) {
                 // Access an element of an array -> Two-dimensional -> Row
                 std::string varName = gepInst.getName().str();
                 llvm::Value *arrayIndexOperand = gepInst.getOperand(gepInst.getNumOperands() - 1);
@@ -2579,12 +2493,12 @@ void Converter::visitGetElementPtrInst(llvm::GetElementPtrInst &gepInst)
                     index = "v" + arrayIndexOperand->getName().str();
                 }
                 std::cout << "v" << varName << " := select_array(v" << basePoint << ", " << index << ");" << std::endl;
-                if (std::find(twoDimSubArrs.begin(), twoDimSubArrs.end(), "v" + varName) == twoDimSubArrs.end()) {
-                    twoDimSubArrs.push_back("v" + varName);
+                if (std::find(twoDimInnerArrs.begin(), twoDimInnerArrs.end(), "v" + varName) == twoDimInnerArrs.end()) {
+                    twoDimInnerArrs.push_back("v" + varName);
                 }
                 arrayInsts.push_back({"v" + varName, "v" + basePoint, index});
             }
-            else if (std::find(twoDimSubArrs.begin(), twoDimSubArrs.end(), "v" + basePoint) != twoDimSubArrs.end()) {
+            else if (std::find(twoDimInnerArrs.begin(), twoDimInnerArrs.end(), "v" + basePoint) != twoDimInnerArrs.end()) {
                 // Access an element of an array -> Two-dimensional -> Column
                 std::string varName = gepInst.getName().str();
                 llvm::Value *arrayIndexOperand = gepInst.getOperand(gepInst.getNumOperands() - 1);
@@ -2595,7 +2509,7 @@ void Converter::visitGetElementPtrInst(llvm::GetElementPtrInst &gepInst)
                 else {
                     index = "v" + arrayIndexOperand->getName().str();
                 }
-                std::cout << "v" << varName << " := select_array(v" << basePoint << ", " << index << ");" << std::endl;
+                std::cout << "v" << varName << " := " << index << ";" << std::endl;
                 arrayInsts.push_back({"v" + varName, "v" + basePoint, index});
             }
             else {
@@ -2612,7 +2526,7 @@ void Converter::visitGetElementPtrInst(llvm::GetElementPtrInst &gepInst)
                 else {
                     offset = "v" + offsetOperand->getName().str();
                 }
-                std::cout << "v" << varName << " := select_array(" << arrayName << ", " << index << " + " << offset << ");" << std::endl;
+                std::cout << "v" << varName << " := " << index << " + " << offset << ";" << std::endl;
                 arrayInsts.push_back({"v" + varName, arrayName, index + " + " + offset});
             }
             //</first>
@@ -2698,19 +2612,20 @@ void Converter::visitLoadInst(llvm::LoadInst &I)
             newArg = Polynomial::create(getNondef(&I));
 
             //<Negar>
-            std::string leftVar = (getVar(&I));
-            std::string rightVar = "v" + I.getPointerOperand()->getName().str();
+            std::string sourceVar = "v" + I.getPointerOperand()->getName().str();
+            std::string destinationVar = getVar(&I);
 
-            auto it1 = std::find_if(arrayInsts.begin(), arrayInsts.end(), [&rightVar](const ArrayInst& arrayInst) { return arrayInst.variable == rightVar; });
+            auto it1 = std::find_if(arrayInsts.begin(), arrayInsts.end(), [&sourceVar](const ArrayInst& arrayInst) { return arrayInst.variable == sourceVar; });
             if (it1 != arrayInsts.end()) {
                 newArg = Polynomial::create("nondef_nf");
-                std::cout << leftVar << " := " << "select_array(" << it1->array << ", " << it1->index << ");" << std::endl;
+                std::cout << destinationVar << " := " << "select_array(" << it1->array << ", " << sourceVar << ");" << std::endl;
             }
 
             else {
-                auto it2 = std::find_if(structInsts.begin(), structInsts.end(), [&rightVar](const StructInst& structInst) { return structInst.variable == rightVar; });
+                auto it2 = std::find_if(structInsts.begin(), structInsts.end(), [&sourceVar](const StructInst& structInst) { return structInst.variable == sourceVar; });
                 if (it2 != structInsts.end()) {
-                    std::cout << "negarfathi: "; newArg = Polynomial::create(it2->variable);
+                    newArg = Polynomial::create("nondef_nf");
+                    std::cout << destinationVar << " := select_tuple(" << it2->instance << ", " << std::to_string(it2->accessedFieldId) << ", " + std::to_string(it2->totalFields) + ");" << std::endl;
                 }
             }
             //</Negar>
@@ -2753,13 +2668,50 @@ void Converter::visitStoreInst(llvm::StoreInst &I)
         //<Negar>
         bool flag = false;
 
-        std::string leftVar = getVar(ptr);
-        std::string rightVar = p->toString();
+        std::string sourceVar = p->toString();
+        std::string destinationVar = getVar(ptr);
 
-        auto it1 = std::find_if(arrayInsts.begin(), arrayInsts.end(), [&leftVar](const ArrayInst& arrayInst) { return arrayInst.variable == leftVar; });
+        auto it1 = std::find_if(arrayInsts.begin(), arrayInsts.end(), [&destinationVar](const ArrayInst& arrayInst) { return arrayInst.variable == destinationVar; });
         if (it1 != arrayInsts.end()) {
             flag = true;
-            std::cout << it1->array << " := store_array(" << it1->array << ", " << it1->index << ", " << rightVar << ");" << std::endl;
+            std::string arrayName = it1->array;
+
+            if (std::find(oneDimArrs.begin(), oneDimArrs.end(), arrayName) != oneDimArrs.end()) {
+                std::cout << arrayName << " := store_array(" << arrayName << ", " << destinationVar << ", " << sourceVar << ");" << std::endl;
+            }
+
+            else {
+                std::cout << arrayName << " := store_array(" << arrayName << ", " << destinationVar << ", " << sourceVar << ");" << std::endl;
+                auto it2 = std::find_if(arrayInsts.begin(), arrayInsts.end(), [&arrayName](const ArrayInst& arrayInst) { return arrayInst.variable == arrayName; });
+                if (it2 != arrayInsts.end()) {
+                    std::cout << it2->array << " := store_array(" << it2->array << ", " << it2->index << ", " << arrayName << ");" << std::endl;
+                }
+            }
+        }
+
+        else {
+            auto it3 = std::find_if(structInsts.begin(), structInsts.end(), [&destinationVar](const StructInst& structInst) { return structInst.variable == destinationVar; });
+            if (it3 != structInsts.end()) {
+                flag = true;
+                std::string structInstance = it3->instance;
+                auto it4 = std::find_if(arrayInsts.begin(), arrayInsts.end(), [&structInstance](const ArrayInst& arrayInst) { return arrayInst.variable == structInstance; });
+                if (it4 != arrayInsts.end()) {
+                    std::string newInst = it3->variable + "v" + std::to_string(it3->totalFields) + " := constr_tuple(";
+                    for (int i = 0; i < it3->totalFields; i++) {
+                        if (i == it3->accessedFieldId) {
+                            newInst = newInst + sourceVar + ", ";
+                        }
+                        else {
+                            std::cout << it3->variable << "v" << std::to_string(i) << " := select_tuple(" << structInstance << ", " << std::to_string(i) << ", " << it3->totalFields << ");" << std::endl;
+                            newInst = newInst + it3->variable + "v" + std::to_string(i) + ", ";
+                        }
+                    }
+                    newInst.erase(newInst.size() - 2);
+                    newInst = newInst + ");";
+                    std::cout << newInst << std::endl;
+                    std::cout << it4->array << " := store_array(" << it4->array << ", " << it4->index << ", " << it3->variable + "v" + std::to_string(it3->totalFields) << ");" << std::endl;
+                }
+            }
         }
 
         if (flag != true) {
@@ -2769,25 +2721,6 @@ void Converter::visitStoreInst(llvm::StoreInst &I)
                       << p->toString() << ";" << std::endl;
 
         //<Negar>
-            auto it2 = std::find_if(structInsts.begin(), structInsts.end(), [&leftVar](const StructInst& structInst) { return structInst.variable == leftVar; });
-            if (it2 != structInsts.end()) {
-                std::string structInstance = it2->instance;
-                auto it3 = std::find_if(arrayInsts.begin(), arrayInsts.end(), [&structInstance](const ArrayInst& arrayInst) { return arrayInst.variable == structInstance; });
-                std::string newInst = it2->variable + "v" + std::to_string(it2->totalFields) + " := constr_tuple(";
-                for (int i = 0; i < it2->totalFields; i++) {
-                    if (i == it2->accessedFieldId) {
-                        newInst = newInst + it2->variable + ", ";
-                    }
-                    else {
-                        std::cout << it2->variable << "v" << std::to_string(i) << " := select_tuple(" << structInstance << ", " << std::to_string(i) << ", " << it2->totalFields << ");" << std::endl;
-                        newInst = newInst + it2->variable + "v" + std::to_string(i) + ", ";
-                    }
-                }
-                newInst.erase(newInst.size() - 2);
-                newInst = newInst + ");";
-                std::cout << newInst << std::endl;
-                std::cout << it3->array << " := store_array(" << it3->array << ", " << it3->index << ", " << it2->variable + "v" + std::to_string(it2->totalFields) << ");" << std::endl;
-            }
         }
         //</Negar>
     }
@@ -2842,68 +2775,28 @@ void Converter::visitAllocaInst(llvm::AllocaInst &allocaInst)
         llvm::Type *allocatedType = allocaInst.getAllocatedType();
         if (allocatedType->isArrayTy()) {
             // Define an array -> Locally -> One-dimensional -> Fixed-sized
-            std::string arrayName = allocaInst.getName().str();
-            llvm::Type *elementType = llvm::dyn_cast<llvm::ArrayType>(allocatedType)->getElementType();
-            std::string elementTypeStr;
-            if (elementType->isIntegerTy(8)) { // i8 translates to "char"
-                elementTypeStr = "char";
-            } else if (elementType->isIntegerTy(32)) { // i32 translates to "int"
-                elementTypeStr = "int";
-            } else if (elementType->isIntegerTy(64)) { // i64 translates to "long"
-                elementTypeStr = "long";
-            } else if (elementType->isStructTy()){
-                llvm::raw_string_ostream rso(elementTypeStr);
-                elementType->print(rso);
-                rso.flush();
-                elementTypeStr = "v" + elementTypeStr;
-            }
-            std::cout << "v" << arrayName << " := nondet();" << std::endl;
-            if (std::find(oneDimArrs.begin(), oneDimArrs.end(), "v" + arrayName) == oneDimArrs.end()) {
-                oneDimArrs.push_back("v" + arrayName);
+            std::string arrayName = "v" + allocaInst.getName().str();
+            std::cout << arrayName << " := nondet();" << std::endl;
+            if (std::find(oneDimArrs.begin(), oneDimArrs.end(), arrayName) == oneDimArrs.end()) {
+                oneDimArrs.push_back(arrayName);
             }
         }
         else {
             std::string arraySizeOperand = allocaInst.getArraySize()->getName().str();
-            if(std::find(mulInsts.begin(), mulInsts.end(), "v" + arraySizeOperand) == mulInsts.end()){
+            if (std::find(mulInsts.begin(), mulInsts.end(), "v" + arraySizeOperand) == mulInsts.end()) {
                 // Define an array -> Locally -> One-dimensional -> Variable-sized
-                std::string arrayName = allocaInst.getName().str();
-                std::string elementTypeStr;
-                if (allocatedType->isIntegerTy(8)) { // i8 translates to "char"
-                    elementTypeStr = "char";
-                } else if (allocatedType->isIntegerTy(32)) { // i32 translates to "int"
-                    elementTypeStr = "int";
-                } else if (allocatedType->isIntegerTy(64)) { // i64 translates to "long"
-                    elementTypeStr = "long";
-                } else if (allocatedType->isStructTy()){
-                    llvm::raw_string_ostream rso(elementTypeStr);
-                    allocatedType->print(rso);
-                    rso.flush();
-                    elementTypeStr = "v" + elementTypeStr;
-                }
-                std::cout << "v" << arrayName << " := nondet();" << std::endl;
-                if (std::find(oneDimArrs.begin(), oneDimArrs.end(), "v" + arrayName) == oneDimArrs.end()) {
-                    oneDimArrs.push_back("v" + arrayName);
+                std::string arrayName = "v" + allocaInst.getName().str();
+                std::cout << arrayName << " := nondet();" << std::endl;
+                if (std::find(oneDimArrs.begin(), oneDimArrs.end(), arrayName) == oneDimArrs.end()) {
+                    oneDimArrs.push_back(arrayName);
                 }
             }
             else {
                 // Define an array -> Locally -> Two-dimensional
-                std::string arrayName = allocaInst.getName().str();
-                std::string elementTypeStr;
-                if (allocatedType->isIntegerTy(8)) { // i8 translates to "char"
-                    elementTypeStr = "char";
-                } else if (allocatedType->isIntegerTy(32)) { // i32 translates to "int"
-                    elementTypeStr = "int";
-                } else if (allocatedType->isIntegerTy(64)) { // i64 translates to "long"
-                    elementTypeStr = "long";
-                } else if (allocatedType->isStructTy()){
-                    llvm::raw_string_ostream rso(elementTypeStr);
-                    allocatedType->print(rso);
-                    rso.flush();
-                    elementTypeStr = "v" + elementTypeStr;
-                }
-                std::cout << "v" << arrayName << " := nondet();" << std::endl;
-                if (std::find(twoDimArrs.begin(), twoDimArrs.end(), "v" + arrayName) == twoDimArrs.end()) {
-                    twoDimArrs.push_back("v" + arrayName);
+                std::string arrayName = "v" + allocaInst.getName().str();
+                std::cout << arrayName << " := nondet();" << std::endl;
+                if (std::find(twoDimOuterArrs.begin(), twoDimOuterArrs.end(), arrayName) == twoDimOuterArrs.end()) {
+                    twoDimOuterArrs.push_back(arrayName);
                 }
             }
         }
@@ -2920,7 +2813,9 @@ void Converter::visitFPToSIInst(llvm::FPToSIInst &I)
     else
     {
         //<Negar>
-        std::cout << "v" << I.getName().str() << " := real2int(v" << I.getOperand(0)->getName().str() << ");" << std::endl;
+        std::string leftVar = I.getName().str();
+        std::string rightVar = I.getOperand(0)->getName().str();
+        std::cout << "v" << leftVar << " := real2int(v" << rightVar << ");" << std::endl;
         //</Negar>
 
         ref<Polynomial> nondef = Polynomial::create(getNondef(&I));
@@ -2937,7 +2832,9 @@ void Converter::visitFPToUIInst(llvm::FPToUIInst &I)
     else
     {
         //<Negar>
-        std::cout << "v" << I.getName().str() << " := real2int(v" << I.getOperand(0)->getName().str() << ");" << std::endl;
+        std::string leftVar = I.getName().str();
+        std::string rightVar = I.getOperand(0)->getName().str();
+        std::cout << "v" << leftVar << " := real2int(v" << rightVar << ");" << std::endl;
         //</Negar>
 
         ref<Polynomial> nondef = Polynomial::create(getNondef(&I));
@@ -2971,7 +2868,9 @@ void Converter::visitSExtInst(llvm::SExtInst &I)
     else
     {
         //<Negar>
-        std::cout << "v" << I.getName().str() << " := v" << I.getOperand(0)->getName().str() << ";" << std::endl;
+        std::string leftVar = I.getName().str();
+        std::string rightVar = I.getOperand(0)->getName().str();
+        std::cout << "v" << leftVar << " := v" << rightVar << ";" << std::endl;
         //</Negar>
 
         m_idMap.insert(std::make_pair(&I, m_counter));
@@ -3019,7 +2918,9 @@ void Converter::visitZExtInst(llvm::ZExtInst &I)
     else
     {
         //<Negar>
-        std::cout << "v" << I.getName().str() << " := v" << I.getOperand(0)->getName().str() << ";" << std::endl;
+        std::string leftVar = I.getName().str();
+        std::string rightVar = I.getOperand(0)->getName().str();
+        std::cout << "v" << leftVar << " := v" << rightVar << ";" << std::endl;
         //</Negar>
 
         m_idMap.insert(std::make_pair(&I, m_counter));
@@ -3079,7 +2980,9 @@ void Converter::visitTruncInst(llvm::TruncInst &I)
     else
     {
         //<Negar>
-        std::cout << "v" << I.getName().str() << " := v" << I.getOperand(0)->getName().str() << ";" << std::endl;
+        std::string leftVar = I.getName().str();
+        std::string rightVar = I.getOperand(0)->getName().str();
+        std::cout << "v" << leftVar << " := v" << rightVar << ";" << std::endl;
         //</Negar>
 
         m_idMap.insert(std::make_pair(&I, m_counter));
@@ -3150,8 +3053,8 @@ std::set<std::string> Converter::getComplexityLHSs()
 
 //<Negar>
 void Converter::visitBinaryOperator(llvm::BinaryOperator &binaryOp) {
-    if(!m_phase1){
-        if(binaryOp.getOpcode() == llvm::Instruction::Shl || binaryOp.getOpcode() == llvm::Instruction::LShr || binaryOp.getOpcode() == llvm::Instruction::AShr){
+    if (!m_phase1) {
+        if (binaryOp.getOpcode() == llvm::Instruction::Shl || binaryOp.getOpcode() == llvm::Instruction::LShr || binaryOp.getOpcode() == llvm::Instruction::AShr) {
             std::string varName = binaryOp.getName().str();
             llvm::Value *firstOperand = binaryOp.getOperand(0);
             std::string firstOperandStr;
@@ -3193,7 +3096,9 @@ void Converter::visitBinaryOperator(llvm::BinaryOperator &binaryOp) {
 //<Negar>
 void Converter::visitUIToFPInst(llvm::UIToFPInst &I) {
     if (!m_phase1) {
-        std::cout << "v" << I.getName().str() << " := int2real(v" << I.getOperand(0)->getName().str() << ");" << std::endl;
+        std::string leftVar = I.getName().str();
+        std::string rightVar = I.getOperand(0)->getName().str();
+        std::cout << "v" << leftVar << " := int2real(v" << rightVar << ");" << std::endl;
     }
 }
 //</Negar>
@@ -3201,7 +3106,9 @@ void Converter::visitUIToFPInst(llvm::UIToFPInst &I) {
 //<Negar>
 void Converter::visitSIToFPInst(llvm::SIToFPInst &I) {
     if(!m_phase1){
-        std::cout << "v" << I.getName().str() << " := int2real(v" << I.getOperand(0)->getName().str() << ");" << std::endl;
+        std::string leftVar = I.getName().str();
+        std::string rightVar = I.getOperand(0)->getName().str();
+        std::cout << "v" << leftVar << " := int2real(v" << rightVar << ");" << std::endl;
     }
 }
 //</Negar>

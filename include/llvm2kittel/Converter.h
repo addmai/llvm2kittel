@@ -107,15 +107,15 @@ public:
     //bool hasUnreachableBlock = false;
     std::vector<std::string> mulInsts;
     struct PhiInst {
-        std::string basicBlock;
-        std::string phiVar;
+        std::string variable;
         std::string value;
+        std::string basicBlock;
     };
     std::vector<PhiInst> phiInsts;
     std::vector<std::string> globalInsts;
     std::vector<std::string> oneDimArrs;
-    std::vector<std::string> twoDimArrs;
-    std::vector<std::string> twoDimSubArrs;
+    std::vector<std::string> twoDimOuterArrs;
+    std::vector<std::string> twoDimInnerArrs;
     struct GetElementPtrInst {
         std::string variable;
         std::string array;
