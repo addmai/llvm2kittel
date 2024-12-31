@@ -44,7 +44,46 @@
 
 #define SMALL_VECTOR_SIZE 8
 
-Converter::Converter(const llvm::Type *boolType, bool assumeIsControl, bool selectIsControl, bool onlyMultiPredIsControl, bool boundedIntegers, bool unsignedEncoding, bool onlyLoopConditions, DivRemConstraintType divisionConstraintType, bool bitwiseConditions, bool complexityTuples, const bool t2Output)
+//<Negar>
+//Converter::Converter(const llvm::Type *boolType, bool assumeIsControl, bool selectIsControl, bool onlyMultiPredIsControl, bool boundedIntegers, bool unsignedEncoding, bool onlyLoopConditions, DivRemConstraintType divisionConstraintType, bool bitwiseConditions, bool complexityTuples, const bool t2Output)
+//        : m_entryBlock(NULL),
+//          m_boolType(boolType),
+//          m_blockRules(),
+//          m_rules(),
+//          m_vars(),
+//          m_lhs(),
+//          m_counter(0),
+//          m_phase1(true),
+//          m_globals(),
+//          m_mmMap(),
+//          m_funcMayZap(),
+//          m_tfMap(),
+//          m_elcMap(),
+//          m_returns(),
+//          m_idMap(),
+//          m_phiMap(),
+//          m_nondef(0),
+//          m_assumeIsControl(assumeIsControl),
+//          m_selectIsControl(selectIsControl),
+//          m_onlyMultiPredIsControl(onlyMultiPredIsControl),
+//          m_controlPoints(),
+//          m_trivial(false),
+//          m_function(NULL),
+//          m_scc(),
+//          m_phiVars(),
+//          m_boundedIntegers(boundedIntegers),
+//          m_unsignedEncoding(unsignedEncoding),
+//          m_bitwidthMap(),
+//          m_onlyLoopConditions(onlyLoopConditions),
+//          m_loopConditionBlocks(),
+//          m_divisionConstraintType(divisionConstraintType),
+//          m_bitwiseConditions(bitwiseConditions),
+//          m_complexityTuples(complexityTuples),
+//          m_complexityLHSs(),
+//          m_t2Output(t2Output)
+//{
+//}
+Converter::Converter(const llvm::Type *boolType, bool assumeIsControl, bool selectIsControl, bool onlyMultiPredIsControl, bool boundedIntegers, bool unsignedEncoding, bool onlyLoopConditions, DivRemConstraintType divisionConstraintType, bool bitwiseConditions, bool complexityTuples, const bool t2Output, bool signednessInfo)
     : m_entryBlock(NULL),
       m_boolType(boolType),
       m_blockRules(),
@@ -79,9 +118,11 @@ Converter::Converter(const llvm::Type *boolType, bool assumeIsControl, bool sele
       m_bitwiseConditions(bitwiseConditions),
       m_complexityTuples(complexityTuples),
       m_complexityLHSs(),
-      m_t2Output(t2Output)
+      m_t2Output(t2Output),
+      signednessInfo(signednessInfo)
 {
 }
+//</Negar>
 
 bool Converter::isTrivial(void)
 {
@@ -689,10 +730,24 @@ ref<Constraint> Converter::getUnsignedComparisonForSignedBounded(llvm::CmpInst::
     case llvm::CmpInst::ICMP_UGT:
     case llvm::CmpInst::ICMP_UGE:
     {
-        ref<Constraint> xge = Atom::create(x, Polynomial::null, Atom::Geq);
-        ref<Constraint> yge = Atom::create(y, Polynomial::null, Atom::Geq);
-        ref<Constraint> xlt = Atom::create(x, Polynomial::null, Atom::Lss);
-        ref<Constraint> ylt = Atom::create(y, Polynomial::null, Atom::Lss);
+        //<Negar>
+        ref<Constraint> xge;
+        ref<Constraint> yge;
+        ref<Constraint> xlt;
+        ref<Constraint> ylt;
+        if (signednessInfo) {
+            xge = Atom::create(x, Polynomial::null, Atom::Uge);
+            yge = Atom::create(y, Polynomial::null, Atom::Uge);
+            xlt = Atom::create(x, Polynomial::null, Atom::Ult);
+            ylt = Atom::create(y, Polynomial::null, Atom::Ult);
+        }
+        else {
+            xge = Atom::create(x, Polynomial::null, Atom::Geq);
+            yge = Atom::create(y, Polynomial::null, Atom::Geq);
+            xlt = Atom::create(x, Polynomial::null, Atom::Lss);
+            ylt = Atom::create(y, Polynomial::null, Atom::Lss);
+        }
+        //</Negar>
         ref<Constraint> gege = Operator::create(xge, yge, Operator::And);
         ref<Constraint> ltlt = Operator::create(xlt, ylt, Operator::And);
         ref<Constraint> ltge = Operator::create(xlt, yge, Operator::And);
@@ -744,10 +799,24 @@ ref<Constraint> Converter::getSignedComparisonForUnsignedBounded(llvm::CmpInst::
     case llvm::CmpInst::ICMP_SGT:
     case llvm::CmpInst::ICMP_SGE:
     {
-        ref<Constraint> xle = Atom::create(x, maxpos, Atom::Leq);
-        ref<Constraint> yle = Atom::create(y, maxpos, Atom::Leq);
-        ref<Constraint> xgt = Atom::create(x, maxpos, Atom::Gtr);
-        ref<Constraint> ygt = Atom::create(y, maxpos, Atom::Gtr);
+        //<Negar>
+        ref<Constraint> xle;
+        ref<Constraint> yle;
+        ref<Constraint> xgt;
+        ref<Constraint> ygt;
+        if (signednessInfo) {
+            xle = Atom::create(x, maxpos, Atom::Sle);
+            yle = Atom::create(y, maxpos, Atom::Sle);
+            xgt = Atom::create(x, maxpos, Atom::Sgt);
+            ygt = Atom::create(y, maxpos, Atom::Sgt);
+        }
+        else {
+            xle = Atom::create(x, maxpos, Atom::Leq);
+            yle = Atom::create(y, maxpos, Atom::Leq);
+            xgt = Atom::create(x, maxpos, Atom::Gtr);
+            ygt = Atom::create(y, maxpos, Atom::Gtr);
+        }
+        //</Negar>
         ref<Constraint> lele = Operator::create(xle, yle, Operator::And);
         ref<Constraint> gtgt = Operator::create(xgt, ygt, Operator::And);
         ref<Constraint> legt = Operator::create(xle, ygt, Operator::And);
@@ -799,18 +868,64 @@ Atom::AType Converter::getAtomType(llvm::CmpInst::Predicate pred)
         return Atom::Equ;
     case llvm::CmpInst::ICMP_NE:
         return Atom::Neq;
-    case llvm::CmpInst::ICMP_SGT:
-    case llvm::CmpInst::ICMP_UGT:
-        return Atom::Gtr;
-    case llvm::CmpInst::ICMP_SGE:
-    case llvm::CmpInst::ICMP_UGE:
-        return Atom::Geq;
+    //<Negar>
     case llvm::CmpInst::ICMP_SLT:
+        if (signednessInfo) {
+            return Atom::Slt;
+        }
+        else {
+            return Atom::Lss;
+        }
     case llvm::CmpInst::ICMP_ULT:
-        return Atom::Lss;
+        if (signednessInfo) {
+            return Atom::Ult;
+        }
+        else {
+            return Atom::Lss;
+        }
     case llvm::CmpInst::ICMP_SLE:
+        if (signednessInfo) {
+            return Atom::Sle;
+        }
+        else {
+            return Atom::Leq;
+        }
     case llvm::CmpInst::ICMP_ULE:
-        return Atom::Leq;
+        if (signednessInfo) {
+            return Atom::Ule;
+        }
+        else {
+            return Atom::Leq;
+        }
+    case llvm::CmpInst::ICMP_SGT:
+        if (signednessInfo) {
+            return Atom::Sgt;
+        }
+        else {
+            return Atom::Gtr;
+        }
+    case llvm::CmpInst::ICMP_UGT:
+        if (signednessInfo) {
+            return Atom::Ugt;
+        }
+        else {
+            return Atom::Gtr;
+        }
+    case llvm::CmpInst::ICMP_SGE:
+        if (signednessInfo) {
+            return Atom::Sge;
+        }
+        else {
+            return Atom::Geq;
+        }
+    case llvm::CmpInst::ICMP_UGE:
+        if (signednessInfo) {
+            return Atom::Uge;
+        }
+        else {
+            return Atom::Geq;
+        }
+    //</Negar>
     case llvm::CmpInst::BAD_ICMP_PREDICATE:
     case llvm::CmpInst::FCMP_FALSE:
     case llvm::CmpInst::FCMP_OEQ:
@@ -1185,30 +1300,30 @@ void Converter::visitTerminatorInst(llvm::TerminatorInst &I)
                               << std::endl;
 
                     //<Negar>
-                    if (c->toT2String() == "nondet()") {
-                        if (llvm::FCmpInst *FCI = llvm::dyn_cast<llvm::FCmpInst>(branchVal)) {
-                            if(FCI->getPredicate() == llvm::CmpInst::FCMP_OGT) {
-                                std::string leftVar = FCI->getOperand(0)->getName().str();
-                                std::string rightVar = FCI->getOperand(1)->getName().str();
-
-                                std::string trueCondition = "v" + leftVar + " > v" + rightVar;
-                                llvm::BasicBlock *trueBlock = branch->getSuccessor(0);
-                                std::cout << "FROM: " << (pBlock->getName().str()) << "_end;" << std::endl;
-                                std::cout << "assume(" << trueCondition << ");" << std::endl;
-                                std::cout << "TO: " << (trueBlock->getName().str()) << ";" << std::endl << std::endl;
-
-                                std::string falseCondition = "v" + leftVar + " <= v" + rightVar;
-                                llvm::BasicBlock *falseBlock = branch->getSuccessor(1);
-                                std::cout << "FROM: " << (pBlock->getName().str()) << "_end;" << std::endl;
-                                std::cout << "assume(" << falseCondition << ");" << std::endl;
-                                std::cout << "TO: " << (falseBlock->getName().str()) << ";" << std::endl;
-                            }
-                        }
-                    }
+                    //if (c->toT2String() == "nondet()") {
+                    //    if (llvm::FCmpInst *FCI = llvm::dyn_cast<llvm::FCmpInst>(branchVal)) {
+                    //        if(FCI->getPredicate() == llvm::CmpInst::FCMP_OGT) {
+                    //            std::string leftVar = FCI->getOperand(0)->getName().str();
+                    //            std::string rightVar = FCI->getOperand(1)->getName().str();
+                    //
+                    //            std::string trueCondition = "v" + leftVar + " > v" + rightVar;
+                    //            llvm::BasicBlock *trueBlock = branch->getSuccessor(0);
+                    //            std::cout << "FROM: " << (pBlock->getName().str()) << "_end;" << std::endl;
+                    //            std::cout << "assume(" << trueCondition << ");" << std::endl;
+                    //            std::cout << "TO: " << (trueBlock->getName().str()) << ";" << std::endl << std::endl;
+                    //
+                    //            std::string falseCondition = "v" + leftVar + " <= v" + rightVar;
+                    //            llvm::BasicBlock *falseBlock = branch->getSuccessor(1);
+                    //            std::cout << "FROM: " << (pBlock->getName().str()) << "_end;" << std::endl;
+                    //            std::cout << "assume(" << falseCondition << ");" << std::endl;
+                    //            std::cout << "TO: " << (falseBlock->getName().str()) << ";" << std::endl;
+                    //        }
+                    //    }
+                    //}
                     //</Negar>
 
                     //<Negar>
-                    else {
+                    //else {
                     //</Negar>
 
                         //Transition where the condition holds
@@ -1225,7 +1340,7 @@ void Converter::visitTerminatorInst(llvm::TerminatorInst &I)
                         std::cout << "TO: " << (fBlock->getName().str()) << ";" << std::endl;
 
                     //<Negar>
-                    }
+                    //}
                     //</Negar>
                 }
             }
@@ -1376,16 +1491,32 @@ ref<Constraint> Converter::getSDivConstraintForUnbounded(ref<Polynomial> upper, 
     store.zEQnull = Atom::create(z, null, Atom::Equ);
     store.zEQx = Atom::create(z, x, Atom::Equ);
     store.zEQnegx = Atom::create(z, negx, Atom::Equ);
-    store.yGTRone = Atom::create(y, one, Atom::Gtr);
-    store.xGTRnull = Atom::create(x, null, Atom::Gtr);
-    store.zGEQnull = Atom::create(z, null, Atom::Geq);
-    store.zLSSx = Atom::create(z, x, Atom::Lss);
-    store.xLSSnull = Atom::create(x, null, Atom::Lss);
-    store.zLEQnull = Atom::create(z, null, Atom::Leq);
-    store.zGTRx = Atom::create(z, x, Atom::Gtr);
-    store.yLSSnegone = Atom::create(y, negone, Atom::Lss);
-    store.zGTRnegx = Atom::create(z, negx, Atom::Gtr);
-    store.zLSSnegx = Atom::create(z, negx, Atom::Lss);
+    //<Negar>
+    if (signednessInfo) {
+        store.yGTRone = Atom::create(y, one, Atom::Sgt);
+        store.xGTRnull = Atom::create(x, null, Atom::Sgt);
+        store.zGEQnull = Atom::create(z, null, Atom::Sge);
+        store.zLSSx = Atom::create(z, x, Atom::Slt);
+        store.xLSSnull = Atom::create(x, null, Atom::Slt);
+        store.zLEQnull = Atom::create(z, null, Atom::Sle);
+        store.zGTRx = Atom::create(z, x, Atom::Sgt);
+        store.yLSSnegone = Atom::create(y, negone, Atom::Slt);
+        store.zGTRnegx = Atom::create(z, negx, Atom::Sgt);
+        store.zLSSnegx = Atom::create(z, negx, Atom::Slt);
+    }
+    else {
+        store.yGTRone = Atom::create(y, one, Atom::Gtr);
+        store.xGTRnull = Atom::create(x, null, Atom::Gtr);
+        store.zGEQnull = Atom::create(z, null, Atom::Geq);
+        store.zLSSx = Atom::create(z, x, Atom::Lss);
+        store.xLSSnull = Atom::create(x, null, Atom::Lss);
+        store.zLEQnull = Atom::create(z, null, Atom::Leq);
+        store.zGTRx = Atom::create(z, x, Atom::Gtr);
+        store.yLSSnegone = Atom::create(y, negone, Atom::Lss);
+        store.zGTRnegx = Atom::create(z, negx, Atom::Gtr);
+        store.zLSSnegx = Atom::create(z, negx, Atom::Lss);
+    }
+    //</Negar>
 
     return getSDivConstraint(store);
 }
@@ -1417,21 +1548,67 @@ ref<Constraint> Converter::getSDivConstraintForUnsignedBounded(ref<Polynomial> u
     store.zEQnull = Atom::create(z, null, Atom::Equ);
     store.zEQx = Atom::create(z, x, Atom::Equ);
     store.zEQnegx = Atom::create(z, negx, Atom::Equ);
-    ref<Constraint> yGTRone1 = Atom::create(y, one, Atom::Gtr);
-    ref<Constraint> yGTRone2 = Atom::create(y, maxpos, Atom::Leq);
+    //<Negar>
+    ref<Constraint> yGTRone1;
+    ref<Constraint> yGTRone2;
+    if (signednessInfo) {
+        yGTRone1 = Atom::create(y, one, Atom::Sgt);
+        yGTRone2 = Atom::create(y, maxpos, Atom::Sle);
+    }
+    else {
+        yGTRone1 = Atom::create(y, one, Atom::Gtr);
+        yGTRone2 = Atom::create(y, maxpos, Atom::Leq);
+    }
+    //</Negar>
     store.yGTRone = Operator::create(yGTRone1, yGTRone2, Operator::And);
-    ref<Constraint> xGTRnull1 = Atom::create(x, null, Atom::Gtr);
-    ref<Constraint> xGTRnull2 = Atom::create(x, maxpos, Atom::Leq);
+    //<Negar>
+    ref<Constraint> xGTRnull1;
+    ref<Constraint> xGTRnull2;
+    if (signednessInfo) {
+        xGTRnull1 = Atom::create(x, null, Atom::Sgt);
+        xGTRnull2 = Atom::create(x, maxpos, Atom::Sle);
+    }
+    else {
+        xGTRnull1 = Atom::create(x, null, Atom::Gtr);
+        xGTRnull2 = Atom::create(x, maxpos, Atom::Leq);
+    }
+    //</Negar>
     store.xGTRnull = Operator::create(xGTRnull1, xGTRnull2, Operator::And);
-    store.zGEQnull = Atom::create(z, maxpos, Atom::Leq);
+    //<Negar>
+    if (signednessInfo) {
+        store.zGEQnull = Atom::create(z, maxpos, Atom::Sle);
+    }
+    else {
+        store.zGEQnull = Atom::create(z, maxpos, Atom::Leq);
+    }
+    //</Negar>
     store.zLSSx = getSignedComparisonForUnsignedBounded(llvm::CmpInst::ICMP_SLT, z, x, bitwidth);
-    store.xLSSnull = Atom::create(x, minneg, Atom::Geq);
-    ref<Constraint> zLEQnull1 = Atom::create(z, minneg, Atom::Geq);
+    //<Negar>
+    ref<Constraint> zLEQnull1;
+    if (signednessInfo) {
+        store.xLSSnull = Atom::create(x, minneg, Atom::Sge);
+        zLEQnull1 = Atom::create(z, minneg, Atom::Sge);
+    }
+    else {
+        store.xLSSnull = Atom::create(x, minneg, Atom::Geq);
+        zLEQnull1 = Atom::create(z, minneg, Atom::Geq);
+    }
+    //</Negar>
     ref<Constraint> zLEQnull2 = Atom::create(z, null, Atom::Equ);
     store.zLEQnull = Operator::create(zLEQnull1, zLEQnull2, Operator::Or);
     store.zGTRx = getSignedComparisonForUnsignedBounded(llvm::CmpInst::ICMP_SGT, z, x, bitwidth);
-    ref<Constraint> yLSSnegone1 = Atom::create(y, minneg, Atom::Geq);
-    ref<Constraint> yLSSnegone2 = Atom::create(y, negone, Atom::Lss);
+    //<Negar>
+    ref<Constraint> yLSSnegone1;
+    ref<Constraint> yLSSnegone2;
+    if (signednessInfo) {
+        yLSSnegone1 = Atom::create(y, minneg, Atom::Sge);
+        yLSSnegone2 = Atom::create(y, negone, Atom::Slt);
+    }
+    else {
+        yLSSnegone1 = Atom::create(y, minneg, Atom::Geq);
+        yLSSnegone2 = Atom::create(y, negone, Atom::Lss);
+    }
+    //</Negar>
     store.yLSSnegone = Operator::create(yLSSnegone1, yLSSnegone2, Operator::And);
     store.zGTRnegx = getSignedComparisonForUnsignedBounded(llvm::CmpInst::ICMP_SGT, z, negx, bitwidth);
     store.zLSSnegx = getSignedComparisonForUnsignedBounded(llvm::CmpInst::ICMP_SLT, z, negx, bitwidth);
@@ -1453,35 +1630,95 @@ ref<Constraint> Converter::getExactSDivConstraintForUnbounded(ref<Polynomial> up
     ref<Constraint> pznull = Atom::create(pz, pnull, Atom::Equ);
     ref<Constraint> case1 = Operator::create(pxnull, pznull, Operator::And);
     // 2. y > 0 /\ x > 0 /\ z >= 0 /\ x - y*z >= 0 /\ x - y*z < y
-    ref<Constraint> pygtrnull = Atom::create(py, pnull, Atom::Gtr);
-    ref<Constraint> pxgtrnull = Atom::create(px, pnull, Atom::Gtr);
-    ref<Constraint> pzgeqnull = Atom::create(pz, pnull, Atom::Geq);
+    //<Negar>
+    ref<Constraint> pygtrnull;
+    ref<Constraint> pxgtrnull;
+    ref<Constraint> pzgeqnull;
+    if (signednessInfo) {
+        pygtrnull = Atom::create(py, pnull, Atom::Sgt);
+        pxgtrnull = Atom::create(px, pnull, Atom::Sgt);
+        pzgeqnull = Atom::create(pz, pnull, Atom::Sge);
+    }
+    else {
+        pygtrnull = Atom::create(py, pnull, Atom::Gtr);
+        pxgtrnull = Atom::create(px, pnull, Atom::Gtr);
+        pzgeqnull = Atom::create(pz, pnull, Atom::Geq);
+    }
+    //</Negar>
     ref<Polynomial> term2 = px->sub(py->mult(pz));
-    ref<Constraint> term2geqnull = Atom::create(term2, pnull, Atom::Geq);
-    ref<Constraint> term2lssy = Atom::create(term2, py, Atom::Lss);
+    //<Negar>
+    ref<Constraint> term2geqnull;
+    ref<Constraint> term2lssy;
+    if (signednessInfo) {
+        term2geqnull = Atom::create(term2, pnull, Atom::Sge);
+        term2lssy = Atom::create(term2, py, Atom::Slt);
+    }
+    else {
+        term2geqnull = Atom::create(term2, pnull, Atom::Geq);
+        term2lssy = Atom::create(term2, py, Atom::Lss);
+    }
+    //</Negar>
     ref<Constraint> case21 = Operator::create(pygtrnull, pxgtrnull, Operator::And);
     ref<Constraint> case22 = Operator::create(case21, pzgeqnull, Operator::And);
     ref<Constraint> case23 = Operator::create(case22, term2geqnull, Operator::And);
     ref<Constraint> case2 = Operator::create(case23, term2lssy, Operator::And);
     // 3. y < 0 /\ x > 0 /\ z <= 0 /\ x - y*z >= 0 /\ x - y*z < -y
-    ref<Constraint> pylssnull = Atom::create(py, pnull, Atom::Lss);
-    ref<Constraint> pzleqnull = Atom::create(pz, pnull, Atom::Leq);
-    ref<Constraint> term2lssnegy = Atom::create(term2, pnegy, Atom::Lss);
+    //<Negar>
+    ref<Constraint> pylssnull;
+    ref<Constraint> pzleqnull;
+    ref<Constraint> term2lssnegy;
+    if (signednessInfo) {
+        pylssnull = Atom::create(py, pnull, Atom::Slt);
+        pzleqnull = Atom::create(pz, pnull, Atom::Sle);
+        term2lssnegy = Atom::create(term2, pnegy, Atom::Slt);
+    }
+    else {
+        pylssnull = Atom::create(py, pnull, Atom::Lss);
+        pzleqnull = Atom::create(pz, pnull, Atom::Leq);
+        term2lssnegy = Atom::create(term2, pnegy, Atom::Lss);
+    }
+    //</Negar>
     ref<Constraint> case31 = Operator::create(pylssnull, pxgtrnull, Operator::And);
     ref<Constraint> case32 = Operator::create(case31, pzleqnull, Operator::And);
     ref<Constraint> case33 = Operator::create(case32, term2geqnull, Operator::And);
     ref<Constraint> case3 = Operator::create(case33, term2lssnegy, Operator::And);
     // 4. y > 0 /\ x < 0 /\ z <= 0 /\ -x + y*z >= 0 /\ -x + y*z < y
-    ref<Constraint> pxlssnull = Atom::create(px, pnull, Atom::Lss);
+    //<Negar>
+    ref<Constraint> pxlssnull;
+    if (signednessInfo) {
+        pxlssnull = Atom::create(px, pnull, Atom::Slt);
+    }
+    else {
+        pxlssnull = Atom::create(px, pnull, Atom::Lss);
+    }
+    //</Negar>
     ref<Polynomial> term4 = pnegx->add(py->mult(pz));
-    ref<Constraint> term4geqnull = Atom::create(term4, pnull, Atom::Geq);
-    ref<Constraint> term4lssy = Atom::create(term4, py, Atom::Lss);
+    //<Negar>
+    ref<Constraint> term4geqnull;
+    ref<Constraint> term4lssy;
+    if (signednessInfo) {
+        term4geqnull = Atom::create(term4, pnull, Atom::Sge);
+        term4lssy = Atom::create(term4, py, Atom::Slt);
+    }
+    else {
+        term4geqnull = Atom::create(term4, pnull, Atom::Geq);
+        term4lssy = Atom::create(term4, py, Atom::Lss);
+    }
+    //</Negar>
     ref<Constraint> case41 = Operator::create(pygtrnull, pxlssnull, Operator::And);
     ref<Constraint> case42 = Operator::create(case41, pzleqnull, Operator::And);
     ref<Constraint> case43 = Operator::create(case42, term4geqnull, Operator::And);
     ref<Constraint> case4 = Operator::create(case43, term4lssy, Operator::And);
     // 5. y < 0 /\ x < 0 /\ z >= 0 /\ -x + y*z >= 0 /\ -x + y*z < -y
-    ref<Constraint> term4lssnegy = Atom::create(term4, pnegy, Atom::Lss);
+    //<Negar>
+    ref<Constraint> term4lssnegy;
+    if (signednessInfo) {
+        term4lssnegy = Atom::create(term4, pnegy, Atom::Slt);
+    }
+    else {
+        term4lssnegy = Atom::create(term4, pnegy, Atom::Lss);
+    }
+    //</Negar>
     ref<Constraint> case51 = Operator::create(pylssnull, pxlssnull, Operator::And);
     ref<Constraint> case52 = Operator::create(case51, pzgeqnull, Operator::And);
     ref<Constraint> case53 = Operator::create(case52, term4geqnull, Operator::And);
@@ -1528,7 +1765,14 @@ void Converter::visitSDiv(llvm::BinaryOperator &I)
         }
         if (m_t2Output)
         {
-            std::cout << getVar(&I) << " := " << upper->toString() << " / " << lower->toString() << ";" << std::endl;
+            //<Negar>
+            if (signednessInfo) {
+                std::cout << getVar(&I) << " := " << upper->toString() << " sdiv " << lower->toString() << ";" << std::endl;
+            }
+            else {
+                std::cout << getVar(&I) << " := " << upper->toString() << " / " << lower->toString() << ";" << std::endl;
+            }
+            //</Negar>
         }
         visitGenericInstruction(I, nondef, divC);
     }
@@ -1569,11 +1813,31 @@ ref<Constraint> Converter::getUDivConstraintForSignedBounded(ref<Polynomial> upp
     store.yEQone = Atom::create(y, one, Atom::Equ);
     store.zEQnull = Atom::create(z, null, Atom::Equ);
     store.zEQx = Atom::create(z, x, Atom::Equ);
-    ref<Constraint> yGTRone1 = Atom::create(y, one, Atom::Gtr);
-    ref<Constraint> yGTRone2 = Atom::create(y, null, Atom::Lss);
+    //<Negar>
+    ref<Constraint> yGTRone1;
+    ref<Constraint> yGTRone2;
+    if (signednessInfo) {
+        yGTRone1 = Atom::create(y, one, Atom::Ugt);
+        yGTRone2 = Atom::create(y, null, Atom::Ult);
+    }
+    else {
+        yGTRone1 = Atom::create(y, one, Atom::Gtr);
+        yGTRone2 = Atom::create(y, null, Atom::Lss);
+    }
+    //</Negar>
     store.yGTRone = Operator::create(yGTRone1, yGTRone2, Operator::Or);
-    ref<Constraint> xGTRnull1 = Atom::create(x, null, Atom::Gtr);
-    ref<Constraint> xGTRnull2 = Atom::create(x, null, Atom::Lss);
+    //<Negar>
+    ref<Constraint> xGTRnull1;
+    ref<Constraint> xGTRnull2;
+    if (signednessInfo) {
+        xGTRnull1 = Atom::create(x, null, Atom::Ugt);
+        xGTRnull2 = Atom::create(x, null, Atom::Ult);
+    }
+    else {
+        xGTRnull1 = Atom::create(x, null, Atom::Gtr);
+        xGTRnull2 = Atom::create(x, null, Atom::Lss);
+    }
+    //</Negar>
     store.xGTRnull = Operator::create(xGTRnull1, xGTRnull2, Operator::Or);
     store.zLSSx = getUnsignedComparisonForSignedBounded(llvm::CmpInst::ICMP_ULT, z, x);
 
@@ -1595,9 +1859,18 @@ ref<Constraint> Converter::getUDivConstraintForUnsignedBounded(ref<Polynomial> u
     store.yEQone = Atom::create(y, one, Atom::Equ);
     store.zEQnull = Atom::create(z, null, Atom::Equ);
     store.zEQx = Atom::create(z, x, Atom::Equ);
-    store.yGTRone = Atom::create(y, one, Atom::Gtr);
-    store.xGTRnull = Atom::create(x, null, Atom::Gtr);
-    store.zLSSx = Atom::create(z, x, Atom::Lss);
+    //<Negar>
+    if (signednessInfo) {
+        store.yGTRone = Atom::create(y, one, Atom::Ugt);
+        store.xGTRnull = Atom::create(x, null, Atom::Ugt);
+        store.zLSSx = Atom::create(z, x, Atom::Ult);
+    }
+    else {
+        store.yGTRone = Atom::create(y, one, Atom::Gtr);
+        store.xGTRnull = Atom::create(x, null, Atom::Gtr);
+        store.zLSSx = Atom::create(z, x, Atom::Lss);
+    }
+    //</Negar>
 
     return getUDivConstraint(store);
 }
@@ -1640,7 +1913,14 @@ void Converter::visitUDiv(llvm::BinaryOperator &I)
         }
         if (m_t2Output)
         {
-            std::cout << getVar(&I) << " := " << upper->toString() << " / " << lower->toString() << ";" << std::endl;
+            //<Negar>
+            if (signednessInfo) {
+                std::cout << getVar(&I) << " := " << upper->toString() << " udiv " << lower->toString() << ";" << std::endl;
+            }
+            else {
+                std::cout << getVar(&I) << " := " << upper->toString() << " / " << lower->toString() << ";" << std::endl;
+            }
+            //</Negar>
         }
         visitGenericInstruction(I, nondef, divC);
     }
@@ -1698,16 +1978,32 @@ ref<Constraint> Converter::getSRemConstraintForUnbounded(ref<Polynomial> upper, 
     store.zEQnull = Atom::create(z, null, Atom::Equ);
     store.yEQone = Atom::create(y, one, Atom::Equ);
     store.yEQnegone = Atom::create(y, negone, Atom::Equ);
-    store.yGTRone = Atom::create(y, one, Atom::Gtr);
-    store.xGTRnull = Atom::create(x, null, Atom::Gtr);
-    store.zGEQnull = Atom::create(z, null, Atom::Geq);
-    store.zLSSy = Atom::create(z, y, Atom::Lss);
-    store.xLSSnull = Atom::create(x, null, Atom::Lss);
-    store.zLEQnull = Atom::create(z, null, Atom::Leq);
-    store.zGTRnegy = Atom::create(z, negy, Atom::Gtr);
-    store.yLSSnegone = Atom::create(y, negone, Atom::Lss);
-    store.zLSSnegy = Atom::create(z, negy, Atom::Lss);
-    store.zGTRy = Atom::create(z, y, Atom::Gtr);
+    //<Negar>
+    if (signednessInfo) {
+        store.yGTRone = Atom::create(y, one, Atom::Sgt);
+        store.xGTRnull = Atom::create(x, null, Atom::Sgt);
+        store.zGEQnull = Atom::create(z, null, Atom::Sge);
+        store.zLSSy = Atom::create(z, y, Atom::Slt);
+        store.xLSSnull = Atom::create(x, null, Atom::Slt);
+        store.zLEQnull = Atom::create(z, null, Atom::Sle);
+        store.zGTRnegy = Atom::create(z, negy, Atom::Sgt);
+        store.yLSSnegone = Atom::create(y, negone, Atom::Slt);
+        store.zLSSnegy = Atom::create(z, negy, Atom::Slt);
+        store.zGTRy = Atom::create(z, y, Atom::Sgt);
+    }
+    else {
+        store.yGTRone = Atom::create(y, one, Atom::Gtr);
+        store.xGTRnull = Atom::create(x, null, Atom::Gtr);
+        store.zGEQnull = Atom::create(z, null, Atom::Geq);
+        store.zLSSy = Atom::create(z, y, Atom::Lss);
+        store.xLSSnull = Atom::create(x, null, Atom::Lss);
+        store.zLEQnull = Atom::create(z, null, Atom::Leq);
+        store.zGTRnegy = Atom::create(z, negy, Atom::Gtr);
+        store.yLSSnegone = Atom::create(y, negone, Atom::Lss);
+        store.zLSSnegy = Atom::create(z, negy, Atom::Lss);
+        store.zGTRy = Atom::create(z, y, Atom::Gtr);
+    }
+    //</Negar>
 
     return getSRemConstraint(store);
 }
@@ -1737,21 +2033,67 @@ ref<Constraint> Converter::getSRemConstraintForUnsignedBounded(ref<Polynomial> u
     store.zEQnull = Atom::create(z, null, Atom::Equ);
     store.yEQone = Atom::create(y, one, Atom::Equ);
     store.yEQnegone = Atom::create(y, negone, Atom::Equ);
-    ref<Constraint> yGTRone1 = Atom::create(y, one, Atom::Gtr);
-    ref<Constraint> yGTRone2 = Atom::create(y, maxpos, Atom::Leq);
+    //<Negar>
+    ref<Constraint> yGTRone1;
+    ref<Constraint> yGTRone2;
+    if (signednessInfo) {
+        yGTRone1 = Atom::create(y, one, Atom::Sgt);
+        yGTRone2 = Atom::create(y, maxpos, Atom::Sle);
+    }
+    else {
+        yGTRone1 = Atom::create(y, one, Atom::Gtr);
+        yGTRone2 = Atom::create(y, maxpos, Atom::Leq);
+    }
+    //</Negar>
     store.yGTRone = Operator::create(yGTRone1, yGTRone2, Operator::And);
-    ref<Constraint> xGTRnull1 = Atom::create(x, null, Atom::Gtr);
-    ref<Constraint> xGTRnull2 = Atom::create(x, maxpos, Atom::Leq);
+    //<Negar>
+    ref<Constraint> xGTRnull1;
+    ref<Constraint> xGTRnull2;
+    if (signednessInfo) {
+        xGTRnull1 = Atom::create(x, null, Atom::Sgt);
+        xGTRnull2 = Atom::create(x, maxpos, Atom::Sle);
+    }
+    else {
+        xGTRnull1 = Atom::create(x, null, Atom::Gtr);
+        xGTRnull2 = Atom::create(x, maxpos, Atom::Leq);
+    }
+    //</Negar>
     store.xGTRnull = Operator::create(xGTRnull1, xGTRnull2, Operator::And);
-    store.zGEQnull = Atom::create(z, maxpos, Atom::Leq);
+    //<Negar>
+    if (signednessInfo) {
+        store.zGEQnull = Atom::create(z, maxpos, Atom::Sle);
+    }
+    else {
+        store.zGEQnull = Atom::create(z, maxpos, Atom::Leq);
+    }
+    //</Negar>
     store.zLSSy = getSignedComparisonForUnsignedBounded(llvm::CmpInst::ICMP_SLT, z, y, bitwidth);
-    store.xLSSnull = Atom::create(x, minneg, Atom::Geq);
-    ref<Constraint> zLEQnull1 = Atom::create(z, minneg, Atom::Geq);
+    //<Negar>
+    ref<Constraint> zLEQnull1;
+    if (signednessInfo) {
+        store.xLSSnull = Atom::create(x, minneg, Atom::Sge);
+        zLEQnull1 = Atom::create(z, minneg, Atom::Sge);
+    }
+    else {
+        store.xLSSnull = Atom::create(x, minneg, Atom::Geq);
+        zLEQnull1 = Atom::create(z, minneg, Atom::Geq);
+    }
+    //</Negar>
     ref<Constraint> zLEQnull2 = Atom::create(z, null, Atom::Equ);
     store.zLEQnull = Operator::create(zLEQnull1, zLEQnull2, Operator::Or);
     store.zGTRnegy = getSignedComparisonForUnsignedBounded(llvm::CmpInst::ICMP_SGT, z, negy, bitwidth);
-    ref<Constraint> yLSSnegone1 = Atom::create(y, minneg, Atom::Geq);
-    ref<Constraint> yLSSnegone2 = Atom::create(y, negone, Atom::Lss);
+    //<Negar>
+    ref<Constraint> yLSSnegone1;
+    ref<Constraint> yLSSnegone2;
+    if (signednessInfo) {
+        yLSSnegone1 = Atom::create(y, minneg, Atom::Sge);
+        yLSSnegone2 = Atom::create(y, negone, Atom::Slt);
+    }
+    else {
+        yLSSnegone1 = Atom::create(y, minneg, Atom::Geq);
+        yLSSnegone2 = Atom::create(y, negone, Atom::Lss);
+    }
+    //</Negar>
     store.yLSSnegone = Operator::create(yLSSnegone1, yLSSnegone2, Operator::And);
     store.zLSSnegy = getSignedComparisonForUnsignedBounded(llvm::CmpInst::ICMP_SLT, z, negy, bitwidth);
     store.zGTRy = getSignedComparisonForUnsignedBounded(llvm::CmpInst::ICMP_SGT, z, y, bitwidth);
@@ -1794,7 +2136,14 @@ void Converter::visitSRem(llvm::BinaryOperator &I)
         }
         if (m_t2Output)
         {
-            std::cout << getVar(&I) << " := " << upper->toString() << " % " << lower->toString() << ";" << std::endl;
+            //<Negar>
+            if (signednessInfo) {
+                std::cout << getVar(&I) << " := " << upper->toString() << " srem " << lower->toString() << ";" << std::endl;
+            }
+            else {
+                std::cout << getVar(&I) << " := " << upper->toString() << " % " << lower->toString() << ";" << std::endl;
+            }
+            //</Negar>
         }
         visitGenericInstruction(I, nondef, remC);
     }
@@ -1834,11 +2183,31 @@ ref<Constraint> Converter::getURemConstraintForSignedBounded(ref<Polynomial> upp
     store.xEQnull = Atom::create(x, null, Atom::Equ);
     store.zEQnull = Atom::create(z, null, Atom::Equ);
     store.yEQone = Atom::create(y, one, Atom::Equ);
-    ref<Constraint> yGTRone1 = Atom::create(y, one, Atom::Gtr);
-    ref<Constraint> yGTRone2 = Atom::create(y, null, Atom::Lss);
+    //<Negar>
+    ref<Constraint> yGTRone1;
+    ref<Constraint> yGTRone2;
+    if (signednessInfo) {
+        yGTRone1 = Atom::create(y, one, Atom::Ugt);
+        yGTRone2 = Atom::create(y, null, Atom::Ult);
+    }
+    else {
+        yGTRone1 = Atom::create(y, one, Atom::Gtr);
+        yGTRone2 = Atom::create(y, null, Atom::Lss);
+    }
+    //</Negar>
     store.yGTRone = Operator::create(yGTRone1, yGTRone2, Operator::Or);
-    ref<Constraint> xGTRnull1 = Atom::create(x, null, Atom::Gtr);
-    ref<Constraint> xGTRnull2 = Atom::create(x, null, Atom::Lss);
+    //<Negar>
+    ref<Constraint> xGTRnull1;
+    ref<Constraint> xGTRnull2;
+    if (signednessInfo) {
+        xGTRnull1 = Atom::create(x, null, Atom::Ugt);
+        xGTRnull2 = Atom::create(x, null, Atom::Ult);
+    }
+    else {
+        xGTRnull1 = Atom::create(x, null, Atom::Gtr);
+        xGTRnull2 = Atom::create(x, null, Atom::Lss);
+    }
+    //</Negar>
     store.xGTRnull = Operator::create(xGTRnull1, xGTRnull2, Operator::Or);
     store.zLSSy = getUnsignedComparisonForSignedBounded(llvm::CmpInst::ICMP_ULT, z, y);
 
@@ -1859,9 +2228,18 @@ ref<Constraint> Converter::getURemConstraintForUnsignedBounded(ref<Polynomial> u
     store.xEQnull = Atom::create(x, null, Atom::Equ);
     store.zEQnull = Atom::create(z, null, Atom::Equ);
     store.yEQone = Atom::create(y, one, Atom::Equ);
-    store.yGTRone = Atom::create(y, one, Atom::Gtr);
-    store.xGTRnull = Atom::create(x, null, Atom::Gtr);
-    store.zLSSy = Atom::create(z, y, Atom::Lss);
+    //<Negar>
+    if (signednessInfo) {
+        store.yGTRone = Atom::create(y, one, Atom::Ugt);
+        store.xGTRnull = Atom::create(x, null, Atom::Ugt);
+        store.zLSSy = Atom::create(z, y, Atom::Ult);
+    }
+    else {
+        store.yGTRone = Atom::create(y, one, Atom::Gtr);
+        store.xGTRnull = Atom::create(x, null, Atom::Gtr);
+        store.zLSSy = Atom::create(z, y, Atom::Lss);
+    }
+    //</Negar>
 
     return getURemConstraint(store);
 }
@@ -1899,7 +2277,14 @@ void Converter::visitURem(llvm::BinaryOperator &I)
         }
         if (m_t2Output)
         {
-            std::cout << getVar(&I) << " := " << upper->toString() << " % " << lower->toString() << ";" << std::endl;
+            //<Negar>
+            if (signednessInfo) {
+                std::cout << getVar(&I) << " := " << upper->toString() << " urem " << lower->toString() << ";" << std::endl;
+            }
+            else {
+                std::cout << getVar(&I) << " := " << upper->toString() << " % " << lower->toString() << ";" << std::endl;
+            }
+            //</Negar>
         }
         visitGenericInstruction(I, nondef, remC);
     }
@@ -1907,19 +2292,47 @@ void Converter::visitURem(llvm::BinaryOperator &I)
 
 ref<Constraint> Converter::getAndConstraintForBounded(ref<Polynomial> x, ref<Polynomial> y, ref<Polynomial> res)
 {
-    ref<Constraint> resLEQx = Atom::create(res, x, Atom::Leq);
-    ref<Constraint> resLEQy = Atom::create(res, y, Atom::Leq);
+    //<Negar>
+    ref<Constraint> resLEQx;
+    ref<Constraint> resLEQy;
+    if (signednessInfo) {
+        resLEQx = m_unsignedEncoding ? Atom::create(res, x, Atom::Ule) : Atom::create(res, x, Atom::Sle);
+        resLEQy = m_unsignedEncoding ? Atom::create(res, y, Atom::Ule) : Atom::create(res, y, Atom::Sle);
+    }
+    else {
+        resLEQx = Atom::create(res, x, Atom::Leq);
+        resLEQy = Atom::create(res, y, Atom::Leq);
+    }
+    //</Negar>
     if (m_unsignedEncoding)
     {
         return Operator::create(resLEQx, resLEQy, Operator::And);
     }
     ref<Polynomial> null = Polynomial::null;
-    ref<Constraint> xGEQnull = Atom::create(x, null, Atom::Geq);
-    ref<Constraint> yGEQnull = Atom::create(y, null, Atom::Geq);
-    ref<Constraint> resGEQnull = Atom::create(res, null, Atom::Geq);
-    ref<Constraint> xLSSnull = Atom::create(x, null, Atom::Lss);
-    ref<Constraint> yLSSnull = Atom::create(y, null, Atom::Lss);
-    ref<Constraint> resLSSnull = Atom::create(res, null, Atom::Lss);
+    //<Negar>
+    ref<Constraint> xGEQnull;
+    ref<Constraint> yGEQnull;
+    ref<Constraint> resGEQnull;
+    ref<Constraint> xLSSnull;
+    ref<Constraint> yLSSnull;
+    ref<Constraint> resLSSnull;
+    if (signednessInfo) {
+        xGEQnull = Atom::create(x, null, Atom::Sge);
+        yGEQnull = Atom::create(y, null, Atom::Sge);
+        resGEQnull = Atom::create(res, null, Atom::Sge);
+        xLSSnull = Atom::create(x, null, Atom::Slt);
+        yLSSnull = Atom::create(y, null, Atom::Slt);
+        resLSSnull = Atom::create(res, null, Atom::Slt);
+    }
+    else {
+        xGEQnull = Atom::create(x, null, Atom::Geq);
+        yGEQnull = Atom::create(y, null, Atom::Geq);
+        resGEQnull = Atom::create(res, null, Atom::Geq);
+        xLSSnull = Atom::create(x, null, Atom::Lss);
+        yLSSnull = Atom::create(y, null, Atom::Lss);
+        resLSSnull = Atom::create(res, null, Atom::Lss);
+    }
+    //</Negar>
     // case 1: x >= 0 /\ y >= 0 /\ res >= 0 /\ res <= x /\ res <= y
     ref<Constraint> case1 = Operator::create(xGEQnull, yGEQnull, Operator::And);
     case1 = Operator::create(case1, resGEQnull, Operator::And);
@@ -1997,19 +2410,47 @@ void Converter::visitAnd(llvm::BinaryOperator &I)
 
 ref<Constraint> Converter::getOrConstraintForBounded(ref<Polynomial> x, ref<Polynomial> y, ref<Polynomial> res)
 {
-    ref<Constraint> resGEQx = Atom::create(res, x, Atom::Leq);
-    ref<Constraint> resGEQy = Atom::create(res, y, Atom::Leq);
+    //<Negar>
+    ref<Constraint> resGEQx;
+    ref<Constraint> resGEQy;
+    if (signednessInfo) {
+        resGEQx = m_unsignedEncoding ? Atom::create(res, x, Atom::Ule) : Atom::create(res, x, Atom::Sle);
+        resGEQy = m_unsignedEncoding ? Atom::create(res, y, Atom::Ule) : Atom::create(res, y, Atom::Sle);
+    }
+    else {
+        resGEQx = Atom::create(res, x, Atom::Leq);
+        resGEQy = Atom::create(res, y, Atom::Leq);
+    }
+    //</Negar>
     if (m_unsignedEncoding)
     {
         return Operator::create(resGEQx, resGEQy, Operator::And);
     }
     ref<Polynomial> null = Polynomial::null;
-    ref<Constraint> xGEQnull = Atom::create(x, null, Atom::Geq);
-    ref<Constraint> yGEQnull = Atom::create(y, null, Atom::Geq);
-    ref<Constraint> resGEQnull = Atom::create(res, null, Atom::Geq);
-    ref<Constraint> xLSSnull = Atom::create(x, null, Atom::Lss);
-    ref<Constraint> yLSSnull = Atom::create(y, null, Atom::Lss);
-    ref<Constraint> resLSSnull = Atom::create(res, null, Atom::Lss);
+    //<Negar>
+    ref<Constraint> xGEQnull;
+    ref<Constraint> yGEQnull;
+    ref<Constraint> resGEQnull;
+    ref<Constraint> xLSSnull;
+    ref<Constraint> yLSSnull;
+    ref<Constraint> resLSSnull;
+    if (signednessInfo) {
+        xGEQnull = Atom::create(x, null, Atom::Sge);
+        yGEQnull = Atom::create(y, null, Atom::Sge);
+        resGEQnull = Atom::create(res, null, Atom::Sge);
+        xLSSnull = Atom::create(x, null, Atom::Slt);
+        yLSSnull = Atom::create(y, null, Atom::Slt);
+        resLSSnull = Atom::create(res, null, Atom::Slt);
+    }
+    else {
+        xGEQnull = Atom::create(x, null, Atom::Geq);
+        yGEQnull = Atom::create(y, null, Atom::Geq);
+        resGEQnull = Atom::create(res, null, Atom::Geq);
+        xLSSnull = Atom::create(x, null, Atom::Lss);
+        yLSSnull = Atom::create(y, null, Atom::Lss);
+        resLSSnull = Atom::create(res, null, Atom::Lss);
+    }
+    //</Negar>
     // case 1: x >= 0 /\ y >= 0 /\ res >= 0 /\ res >= x /\ res >= y
     ref<Constraint> case1 = Operator::create(xGEQnull, yGEQnull, Operator::And);
     case1 = Operator::create(case1, resGEQnull, Operator::And);
@@ -2343,10 +2784,10 @@ void Converter::visitPHINode(llvm::PHINode &I)
     if (I.getType() == m_boolType || !I.getType()->isIntegerTy())
     {
         //<Negar>
-        if (!m_phase1) {
-            std::string phiVarName = I.getName().str();
-            std::cout << "v" << phiVarName << " := " << "var__temp_v" + phiVarName << ";" << std::endl;
-        }
+        //if (!m_phase1) {
+        //    std::string phiVarName = I.getName().str();
+        //    std::cout << "v" << phiVarName << " := " << "var__temp_v" + phiVarName << ";" << std::endl;
+        //}
         //</Negar>
 
         return;
@@ -2888,8 +3329,18 @@ void Converter::visitSExtInst(llvm::SExtInst &I)
             ref<Polynomial> converted = sizeDiff->add(copy);
             ref<Term> rhs1 = Term::create(getEval(m_counter), getNewArgs(I, copy));
             ref<Term> rhs2 = Term::create(getEval(m_counter), getNewArgs(I, converted));
-            ref<Constraint> c1 = Atom::create(copy, intmaxOld, Atom::Leq);
-            ref<Constraint> c2 = Atom::create(copy, intmaxOld, Atom::Gtr);
+            //<Negar>
+            ref<Constraint> c1;
+            ref<Constraint> c2;
+            if (signednessInfo) {
+                c1 = Atom::create(copy, intmaxOld, Atom::Ule);
+                c2 = Atom::create(copy, intmaxOld, Atom::Ugt);
+            }
+            else {
+                c1 = Atom::create(copy, intmaxOld, Atom::Leq);
+                c2 = Atom::create(copy, intmaxOld, Atom::Gtr);
+            }
+            //</Negar>
             ref<Rule> rule1 = Rule::create(lhs, rhs1, c1);
             ref<Rule> rule2 = Rule::create(lhs, rhs2, c2);
             m_blockRules.push_back(rule1);
@@ -2949,8 +3400,18 @@ void Converter::visitZExtInst(llvm::ZExtInst &I)
                 ref<Term> rhs1 = Term::create(getEval(m_counter), getNewArgs(I, copy));
                 ref<Term> rhs2 = Term::create(getEval(m_counter), getNewArgs(I, converted));
                 ref<Polynomial> zero = Polynomial::null;
-                ref<Constraint> c1 = Atom::create(copy, zero, Atom::Geq);
-                ref<Constraint> c2 = Atom::create(copy, zero, Atom::Lss);
+                //<Negar>
+                ref<Constraint> c1;
+                ref<Constraint> c2;
+                if (signednessInfo) {
+                    ref<Constraint> c1 = Atom::create(copy, zero, Atom::Sge);
+                    ref<Constraint> c2 = Atom::create(copy, zero, Atom::Slt);
+                }
+                else {
+                    ref<Constraint> c1 = Atom::create(copy, zero, Atom::Geq);
+                    ref<Constraint> c2 = Atom::create(copy, zero, Atom::Lss);
+                }
+                //</Negar>
                 ref<Rule> rule1 = Rule::create(lhs, rhs1, c1);
                 ref<Rule> rule2 = Rule::create(lhs, rhs2, c2);
                 m_blockRules.push_back(rule1);
