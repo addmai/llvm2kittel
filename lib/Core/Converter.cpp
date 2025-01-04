@@ -3311,7 +3311,14 @@ void Converter::visitSExtInst(llvm::SExtInst &I)
         //<Negar>
         std::string leftVar = I.getName().str();
         std::string rightVar = I.getOperand(0)->getName().str();
-        std::cout << "v" << leftVar << " := v" << rightVar << ";" << std::endl;
+        if (signednessInfo) {
+            unsigned sourceBits = I.getOperand(0)->getType()->getIntegerBitWidth();
+            unsigned destinationBits = I.getType()->getIntegerBitWidth();
+            std::cout << "v" << leftVar << " := sign_extend " << sourceBits << " " << destinationBits << " v" << rightVar << ";" << std::endl;
+        }
+        else {
+            std::cout << "v" << leftVar << " := v" << rightVar << ";" << std::endl;
+        }
         //</Negar>
 
         m_idMap.insert(std::make_pair(&I, m_counter));
@@ -3371,7 +3378,14 @@ void Converter::visitZExtInst(llvm::ZExtInst &I)
         //<Negar>
         std::string leftVar = I.getName().str();
         std::string rightVar = I.getOperand(0)->getName().str();
-        std::cout << "v" << leftVar << " := v" << rightVar << ";" << std::endl;
+        if (signednessInfo) {
+            unsigned sourceBits = I.getOperand(0)->getType()->getIntegerBitWidth();
+            unsigned destinationBits = I.getType()->getIntegerBitWidth();
+            std::cout << "v" << leftVar << " := zero_extend " << sourceBits << " " << destinationBits << " v" << rightVar << ";" << std::endl;
+        }
+        else {
+            std::cout << "v" << leftVar << " := v" << rightVar << ";" << std::endl;
+        }
         //</Negar>
 
         m_idMap.insert(std::make_pair(&I, m_counter));
