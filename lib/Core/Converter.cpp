@@ -3314,7 +3314,7 @@ void Converter::visitSExtInst(llvm::SExtInst &I)
         if (signednessInfo) {
             unsigned sourceBits = I.getOperand(0)->getType()->getIntegerBitWidth();
             unsigned destinationBits = I.getType()->getIntegerBitWidth();
-            std::cout << "v" << leftVar << " := sign_extend " << sourceBits << " " << destinationBits << " v" << rightVar << ";" << std::endl;
+            std::cout << "v" << leftVar << " := sign_extend(" << sourceBits << ", " << destinationBits << ", v" << rightVar << ");" << std::endl;
         }
         else {
             std::cout << "v" << leftVar << " := v" << rightVar << ";" << std::endl;
@@ -3381,7 +3381,7 @@ void Converter::visitZExtInst(llvm::ZExtInst &I)
         if (signednessInfo) {
             unsigned sourceBits = I.getOperand(0)->getType()->getIntegerBitWidth();
             unsigned destinationBits = I.getType()->getIntegerBitWidth();
-            std::cout << "v" << leftVar << " := zero_extend " << sourceBits << " " << destinationBits << " v" << rightVar << ";" << std::endl;
+            std::cout << "v" << leftVar << " := zero_extend(" << sourceBits << ", " << destinationBits << ", v" << rightVar << ");" << std::endl;
         }
         else {
             std::cout << "v" << leftVar << " := v" << rightVar << ";" << std::endl;
