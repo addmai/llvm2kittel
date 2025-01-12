@@ -1301,22 +1301,21 @@ void Converter::visitTerminatorInst(llvm::TerminatorInst &I)
 
                     //<Negar>
                     //if (c->toT2String() == "nondet()") {
-                    //    if (llvm::FCmpInst *FCI = llvm::dyn_cast<llvm::FCmpInst>(branchVal)) {
-                    //        if(FCI->getPredicate() == llvm::CmpInst::FCMP_OGT) {
-                    //            std::string leftVar = FCI->getOperand(0)->getName().str();
-                    //            std::string rightVar = FCI->getOperand(1)->getName().str();
+                    //    if (llvm::BranchInst *BI = llvm::dyn_cast<llvm::BranchInst>(&I)) {
+                    //        if (BI->isConditional()) {
+                    //            std::string varName = BI->getCondition()->getName().str();
                     //
-                    //            std::string trueCondition = "v" + leftVar + " > v" + rightVar;
-                    //            llvm::BasicBlock *trueBlock = branch->getSuccessor(0);
+                    //            std::string trueCondition = "v" + varName + " == true";
+                    //            std::string trueBlock = branch->getSuccessor(0)->getName().str();
                     //            std::cout << "FROM: " << (pBlock->getName().str()) << "_end;" << std::endl;
                     //            std::cout << "assume(" << trueCondition << ");" << std::endl;
-                    //            std::cout << "TO: " << (trueBlock->getName().str()) << ";" << std::endl << std::endl;
+                    //            std::cout << "TO: " << trueBlock << ";" << std::endl << std::endl;
                     //
-                    //            std::string falseCondition = "v" + leftVar + " <= v" + rightVar;
-                    //            llvm::BasicBlock *falseBlock = branch->getSuccessor(1);
+                    //            std::string falseCondition = "v" + varName + " == false";
+                    //            std::string falseBlock = branch->getSuccessor(1)->getName().str();
                     //            std::cout << "FROM: " << (pBlock->getName().str()) << "_end;" << std::endl;
                     //            std::cout << "assume(" << falseCondition << ");" << std::endl;
-                    //            std::cout << "TO: " << (falseBlock->getName().str()) << ";" << std::endl;
+                    //            std::cout << "TO: " << falseBlock << ";" << std::endl;
                     //        }
                     //    }
                     //}
