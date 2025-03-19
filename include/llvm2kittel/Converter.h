@@ -53,7 +53,7 @@ class Converter : public llvm::InstVisitor<Converter>
 public:
     //<Negar>
     //Converter(const llvm::Type *boolType, bool assumeIsControl, bool selectIsControl, bool onlyMultiPredIsControl, bool boundedIntegers, bool unsignedEncoding, bool onlyLoopConditions, DivRemConstraintType divisionConstraintType, bool bitwiseConditions, bool complexityTuples, const bool t2Output);
-    Converter(const llvm::Type *boolType, bool assumeIsControl, bool selectIsControl, bool onlyMultiPredIsControl, bool boundedIntegers, bool unsignedEncoding, bool onlyLoopConditions, DivRemConstraintType divisionConstraintType, bool bitwiseConditions, bool complexityTuples, const bool t2Output, bool signednessInfo);
+    Converter(const llvm::Type *boolType, bool assumeIsControl, bool selectIsControl, bool onlyMultiPredIsControl, bool boundedIntegers, bool unsignedEncoding, bool onlyLoopConditions, DivRemConstraintType divisionConstraintType, bool bitwiseConditions, bool complexityTuples, const bool t2Output, bool unreachableExit, bool signednessInfo);
     //</Negar>
 
     void phase1(llvm::Function *function, std::set<llvm::Function*> &scc, MayMustMap &mmMap, std::map<llvm::Function*, std::set<llvm::GlobalVariable*> > &funcMayZap, TrueFalseMap &tfMap, std::set<llvm::BasicBlock*> &lcbs, ConditionMap &elcMap);
@@ -108,6 +108,7 @@ public:
     //<Negar>
     bool isEntryBlock = true;
     //bool hasUnreachableBlock = false;
+    std::string lastBasicBlockName;
     std::vector<std::string> mulInsts;
     struct PhiInst {
         std::string variable;
@@ -146,6 +147,7 @@ public:
 
 private:
     //<Negar>
+    bool unreachableExit;
     bool signednessInfo;
     //</Negar>
 

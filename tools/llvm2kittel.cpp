@@ -146,6 +146,11 @@ static cl::opt<bool> complexityTuples("complexity-tuples", cl::desc("Generate co
 static cl::opt<bool> uniformComplexityTuples("uniform-complexity-tuples", cl::desc("Generate uniform complexity tuples"), cl::init(false), cl::ReallyHidden);
 
 //<Negar>
+static cl::opt<bool> unreachableExit("unreachable-exit",
+                                    cl::desc("Control behavior on unreachable. "
+                                             "True: jump to the exit basic block (termination). "
+                                             "False: jump back to the same basic block where unreachable was encountered (non-termination)."),
+                                    cl::init(true)); //Default is true (termination)
 static cl::opt<bool> signednessInfo("signedness-info",
                                     cl::desc("Include or exclude signedness information in the output file. Set to true to include signedness information, false to exclude it."),
                                     cl::init(false)); //Default is false
@@ -682,7 +687,7 @@ int main(int argc, char *argv[])
             std::string t2Filename = filename.substr(0, filename.length() - 3) + ".t2";
             //<Negar>
             //Converter converter(boolType, assumeIsControl, selectIsControl, onlyMultiPredIsControl, boundedIntegers, unsignedEncoding, onlyLoopConditions, divisionConstraintType, bitwiseConditions, complexityTuples || uniformComplexityTuples, t2Output);
-            Converter converter(boolType, assumeIsControl, selectIsControl, onlyMultiPredIsControl, boundedIntegers, unsignedEncoding, onlyLoopConditions, divisionConstraintType, bitwiseConditions, complexityTuples || uniformComplexityTuples, t2Output, signednessInfo);
+            Converter converter(boolType, assumeIsControl, selectIsControl, onlyMultiPredIsControl, boundedIntegers, unsignedEncoding, onlyLoopConditions, divisionConstraintType, bitwiseConditions, complexityTuples || uniformComplexityTuples, t2Output, unreachableExit, signednessInfo);
             //</Negar>
             std::map<llvm::Function*, MayMustMap>::iterator tmp1 = mmMap.find(curr);
             if (tmp1 == mmMap.end()) {

@@ -83,7 +83,7 @@
 //          m_t2Output(t2Output)
 //{
 //}
-Converter::Converter(const llvm::Type *boolType, bool assumeIsControl, bool selectIsControl, bool onlyMultiPredIsControl, bool boundedIntegers, bool unsignedEncoding, bool onlyLoopConditions, DivRemConstraintType divisionConstraintType, bool bitwiseConditions, bool complexityTuples, const bool t2Output, bool signednessInfo)
+Converter::Converter(const llvm::Type *boolType, bool assumeIsControl, bool selectIsControl, bool onlyMultiPredIsControl, bool boundedIntegers, bool unsignedEncoding, bool onlyLoopConditions, DivRemConstraintType divisionConstraintType, bool bitwiseConditions, bool complexityTuples, const bool t2Output, bool unreachableExit, bool signednessInfo)
     : m_entryBlock(NULL),
       m_boolType(boolType),
       m_blockRules(),
@@ -119,6 +119,7 @@ Converter::Converter(const llvm::Type *boolType, bool assumeIsControl, bool sele
       m_complexityTuples(complexityTuples),
       m_complexityLHSs(),
       m_t2Output(t2Output),
+      unreachableExit(unreachableExit),
       signednessInfo(signednessInfo)
 {
 }
@@ -228,6 +229,7 @@ void Converter::phase1(llvm::Function *function, std::set<llvm::Function *> &scc
             //if (llvm::isa<llvm::UnreachableInst>(BB.getTerminator())) {
             //    hasUnreachableBlock = true;
             //}
+            lastBasicBlockName = BB.getName().str();
             for (llvm::Instruction &I : BB) {
                 if (llvm::PHINode *phiNode = llvm::dyn_cast<llvm::PHINode>(&I)) {
                     if (phiNode->getType() == m_boolType || !phiNode->getType()->isIntegerTy()) {
@@ -1196,6 +1198,12 @@ void Converter::visitTerminatorInst(llvm::TerminatorInst &I)
         {
             //<Negar>
             //std::cout << "TO: 1;" << std::endl;
+            if (unreachableExit) {
+                std::cout << "TO: " + lastBasicBlockName + "_ret;" << std::endl;
+            }
+            else {
+                std::cout << "TO: " + I.getParent()->getName().str() + ";" << std::endl;
+            }
             //</Negar>
         }
         else
@@ -2984,12 +2992,12 @@ void Converter::visitBitCastInst(llvm::BitCastInst &I)
     if (!I.getType()->isIntegerTy())
     {
         //<Negar>
-        if(!m_phase1){
-            std::string leftVar = I.getName().str();
-            std::string rightVar = I.getOperand(0)->getName().str();
-            std::cout << "v" << leftVar << " := select_array(v" << rightVar << ", 0);" << std::endl;
-            arrayInsts.push_back({"v" + leftVar, "v" + rightVar, "0"});
-        }
+        //if(!m_phase1){
+        //    std::string leftVar = I.getName().str();
+        //    std::string rightVar = I.getOperand(0)->getName().str();
+        //    std::cout << "v" << leftVar << " := select_array(v" << rightVar << ", 0);" << std::endl;
+        //    arrayInsts.push_back({"v" + leftVar, "v" + rightVar, "0"});
+        //}
         //</Negar>
 
         return;
