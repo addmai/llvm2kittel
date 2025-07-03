@@ -3385,8 +3385,7 @@ void Converter::visitZExtInst(llvm::ZExtInst &I)
         //<Negar>
         llvm::BasicBlock *basicBlock = I.getParent();
         std::string basicBlockName = basicBlock->getName().str();
-        llvm::Instruction *preInst = I.getPrevNode();
-        if (!preInst) return;
+        llvm::Value *preInst = I.getOperand(0);
         llvm::ICmpInst *preCmpInst = dyn_cast<llvm::ICmpInst>(preInst);
         if (!preCmpInst) return;
         llvm::ICmpInst::Predicate op = preCmpInst->getPredicate();
