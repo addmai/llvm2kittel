@@ -3500,11 +3500,11 @@ void Converter::visitZExtInst(llvm::ZExtInst &I)
         std::cout << "TO: " << basicBlockName << "_" << result << ";\n\n";
         std::cout << "FROM: " << basicBlockName << "_" << result << ";\n";
         std::cout << "assume(" << leftOperandStr << " " << trueOp << " " << rightOperandStr << ");\n";
-        std::cout << result << " := 0;\n";
+        std::cout << result << " := 1;\n";
         std::cout << "TO: " << basicBlockName << "_s" << result << ";\n\n";
         std::cout << "FROM: " << basicBlockName << "_" << result << ";\n";
         std::cout << "assume(" << leftOperandStr << " " << falseOp << " " << rightOperandStr << ");\n";
-        std::cout << result << " := 1;\n";
+        std::cout << result << " := 0;\n";
         std::cout << "TO: " << basicBlockName << "_s" << result << ";\n\n";
         std::cout << "FROM: " << basicBlockName << "_s" << result << ";\n";
 
