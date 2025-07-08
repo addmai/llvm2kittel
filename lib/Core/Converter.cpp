@@ -3387,127 +3387,126 @@ void Converter::visitZExtInst(llvm::ZExtInst &I)
         std::string basicBlockName = basicBlock->getName().str();
         llvm::Value *preInst = I.getOperand(0);
         llvm::ICmpInst *preCmpInst = dyn_cast<llvm::ICmpInst>(preInst);
-        if (!preCmpInst) return;
-        llvm::ICmpInst::Predicate op = preCmpInst->getPredicate();
-        std::string trueOp;
-        std::string falseOp;
-        if (signednessInfo) {
-            switch (op) {
-                case llvm::ICmpInst::ICMP_EQ:
-                    trueOp = "==";
-                    falseOp = "!=";
-                    break;
-                case llvm::ICmpInst::ICMP_NE:
-                    trueOp = "!=";
-                    falseOp = "==";
-                    break;
-                case llvm::ICmpInst::ICMP_SLT:
-                    trueOp = "slt";
-                    falseOp = "sge";
-                    break;
-                case llvm::ICmpInst::ICMP_SLE:
-                    trueOp = "sle";
-                    falseOp = "sgt";
-                    break;
-                case llvm::ICmpInst::ICMP_SGT:
-                    trueOp = "sgt";
-                    falseOp = "sle";
-                    break;
-                case llvm::ICmpInst::ICMP_SGE:
-                    trueOp = "sge";
-                    falseOp = "slt";
-                    break;
-                case llvm::ICmpInst::ICMP_ULT:
-                    trueOp = "ult";
-                    falseOp = "uge";
-                    break;
-                case llvm::ICmpInst::ICMP_ULE:
-                    trueOp = "ule";
-                    falseOp = "ugt";
-                    break;
-                case llvm::ICmpInst::ICMP_UGT:
-                    trueOp = "ugt";
-                    falseOp = "ule";
-                    break;
-                case llvm::ICmpInst::ICMP_UGE:
-                    trueOp = "uge";
-                    falseOp = "ult";
-                    break;
-                default:
-                    trueOp = "?";
-                    falseOp = "!?";
+        if (preCmpInst) {
+            llvm::ICmpInst::Predicate op = preCmpInst->getPredicate();
+            std::string trueOp;
+            std::string falseOp;
+            if (signednessInfo) {
+                switch (op) {
+                    case llvm::ICmpInst::ICMP_EQ:
+                        trueOp = "==";
+                        falseOp = "!=";
+                        break;
+                    case llvm::ICmpInst::ICMP_NE:
+                        trueOp = "!=";
+                        falseOp = "==";
+                        break;
+                    case llvm::ICmpInst::ICMP_SLT:
+                        trueOp = "slt";
+                        falseOp = "sge";
+                        break;
+                    case llvm::ICmpInst::ICMP_SLE:
+                        trueOp = "sle";
+                        falseOp = "sgt";
+                        break;
+                    case llvm::ICmpInst::ICMP_SGT:
+                        trueOp = "sgt";
+                        falseOp = "sle";
+                        break;
+                    case llvm::ICmpInst::ICMP_SGE:
+                        trueOp = "sge";
+                        falseOp = "slt";
+                        break;
+                    case llvm::ICmpInst::ICMP_ULT:
+                        trueOp = "ult";
+                        falseOp = "uge";
+                        break;
+                    case llvm::ICmpInst::ICMP_ULE:
+                        trueOp = "ule";
+                        falseOp = "ugt";
+                        break;
+                    case llvm::ICmpInst::ICMP_UGT:
+                        trueOp = "ugt";
+                        falseOp = "ule";
+                        break;
+                    case llvm::ICmpInst::ICMP_UGE:
+                        trueOp = "uge";
+                        falseOp = "ult";
+                        break;
+                    default:
+                        trueOp = "?";
+                        falseOp = "!?";
+                }
+            } else {
+                switch (op) {
+                    case llvm::ICmpInst::ICMP_EQ:
+                        trueOp = "==";
+                        falseOp = "!=";
+                        break;
+                    case llvm::ICmpInst::ICMP_NE:
+                        trueOp = "!=";
+                        falseOp = "==";
+                        break;
+                    case llvm::ICmpInst::ICMP_SLT:
+                    case llvm::ICmpInst::ICMP_ULT:
+                        trueOp = "<";
+                        falseOp = ">=";
+                        break;
+                    case llvm::ICmpInst::ICMP_SLE:
+                    case llvm::ICmpInst::ICMP_ULE:
+                        trueOp = "<=";
+                        falseOp = ">";
+                        break;
+                    case llvm::ICmpInst::ICMP_SGT:
+                    case llvm::ICmpInst::ICMP_UGT:
+                        trueOp = ">";
+                        falseOp = "<=";
+                        break;
+                    case llvm::ICmpInst::ICMP_SGE:
+                    case llvm::ICmpInst::ICMP_UGE:
+                        trueOp = ">=";
+                        falseOp = "<";
+                        break;
+                    default:
+                        trueOp = "?";
+                        falseOp = "!?";
+                }
             }
-        }
-        else {
-            switch (op) {
-                case llvm::ICmpInst::ICMP_EQ:
-                    trueOp = "==";
-                    falseOp = "!=";
-                    break;
-                case llvm::ICmpInst::ICMP_NE:
-                    trueOp = "!=";
-                    falseOp = "==";
-                    break;
-                case llvm::ICmpInst::ICMP_SLT:
-                case llvm::ICmpInst::ICMP_ULT:
-                    trueOp = "<";
-                    falseOp = ">=";
-                    break;
-                case llvm::ICmpInst::ICMP_SLE:
-                case llvm::ICmpInst::ICMP_ULE:
-                    trueOp = "<=";
-                    falseOp = ">";
-                    break;
-                case llvm::ICmpInst::ICMP_SGT:
-                case llvm::ICmpInst::ICMP_UGT:
-                    trueOp = ">";
-                    falseOp = "<=";
-                    break;
-                case llvm::ICmpInst::ICMP_SGE:
-                case llvm::ICmpInst::ICMP_UGE:
-                    trueOp = ">=";
-                    falseOp = "<";
-                    break;
-                default:
-                    trueOp = "?";
-                    falseOp = "!?";
+            llvm::Value *leftOperand = preCmpInst->getOperand(0);
+            llvm::Value *rightOperand = preCmpInst->getOperand(1);
+            std::string leftOperandStr;
+            if (llvm::ConstantInt * CI = llvm::dyn_cast<llvm::ConstantInt>(leftOperand)) {
+                leftOperandStr = std::to_string(CI->getSExtValue());
+            } else if (leftOperand->hasName()) {
+                leftOperandStr = "v" + leftOperand->getName().str();
+            } else {
+                leftOperandStr = "v" + std::to_string(leftOperand->getValueID());
             }
+            std::string rightOperandStr;
+            if (llvm::ConstantInt * CI = llvm::dyn_cast<llvm::ConstantInt>(rightOperand)) {
+                rightOperandStr = std::to_string(CI->getSExtValue());
+            } else if (rightOperand->hasName()) {
+                rightOperandStr = "v" + rightOperand->getName().str();
+            } else {
+                rightOperandStr = "v" + std::to_string(rightOperand->getValueID());
+            }
+            std::string result;
+            if (preCmpInst->hasName()) {
+                result = "v" + preCmpInst->getName().str();
+            } else {
+                result = "v" + std::to_string(preCmpInst->getValueID());
+            }
+            std::cout << "TO: " << basicBlockName << "_" << result << ";\n\n";
+            std::cout << "FROM: " << basicBlockName << "_" << result << ";\n";
+            std::cout << "assume(" << leftOperandStr << " " << trueOp << " " << rightOperandStr << ");\n";
+            std::cout << result << " := 1;\n";
+            std::cout << "TO: " << basicBlockName << "_s" << result << ";\n\n";
+            std::cout << "FROM: " << basicBlockName << "_" << result << ";\n";
+            std::cout << "assume(" << leftOperandStr << " " << falseOp << " " << rightOperandStr << ");\n";
+            std::cout << result << " := 0;\n";
+            std::cout << "TO: " << basicBlockName << "_s" << result << ";\n\n";
+            std::cout << "FROM: " << basicBlockName << "_s" << result << ";\n";
         }
-        llvm::Value *leftOperand = preCmpInst->getOperand(0);
-        llvm::Value *rightOperand = preCmpInst->getOperand(1);
-        std::string leftOperandStr;
-        if (llvm::ConstantInt *CI = llvm::dyn_cast<llvm::ConstantInt>(leftOperand)) {
-            leftOperandStr = std::to_string(CI->getSExtValue());
-        } else if (leftOperand->hasName()) {
-            leftOperandStr = "v" + leftOperand->getName().str();
-        } else {
-            leftOperandStr = "v" + std::to_string(leftOperand->getValueID());
-        }
-        std::string rightOperandStr;
-        if (llvm::ConstantInt *CI = llvm::dyn_cast<llvm::ConstantInt>(rightOperand)) {
-            rightOperandStr = std::to_string(CI->getSExtValue());
-        } else if (rightOperand->hasName()) {
-            rightOperandStr = "v" + rightOperand->getName().str();
-        } else {
-            rightOperandStr = "v" + std::to_string(rightOperand->getValueID());
-        }
-        std::string result;
-        if (preCmpInst->hasName()) {
-            result = "v" + preCmpInst->getName().str();
-        } else {
-            result = "v" + std::to_string(preCmpInst->getValueID());
-        }
-        std::cout << "TO: " << basicBlockName << "_" << result << ";\n\n";
-        std::cout << "FROM: " << basicBlockName << "_" << result << ";\n";
-        std::cout << "assume(" << leftOperandStr << " " << trueOp << " " << rightOperandStr << ");\n";
-        std::cout << result << " := 1;\n";
-        std::cout << "TO: " << basicBlockName << "_s" << result << ";\n\n";
-        std::cout << "FROM: " << basicBlockName << "_" << result << ";\n";
-        std::cout << "assume(" << leftOperandStr << " " << falseOp << " " << rightOperandStr << ");\n";
-        std::cout << result << " := 0;\n";
-        std::cout << "TO: " << basicBlockName << "_s" << result << ";\n\n";
-        std::cout << "FROM: " << basicBlockName << "_s" << result << ";\n";
-
         std::string leftVar = I.getName().str();
         std::string rightVar = I.getOperand(0)->getName().str();
         if (signednessInfo) {
