@@ -3710,7 +3710,12 @@ void Converter::visitUIToFPInst(llvm::UIToFPInst &I) {
     if (!m_phase1) {
         std::string leftVar = I.getName().str();
         std::string rightVar = I.getOperand(0)->getName().str();
-        std::cout << "v" << leftVar << " := int2real(v" << rightVar << ");" << std::endl;
+        if (signednessInfo) {
+            std::cout << "v" << leftVar << " := bv2real(v" << rightVar << ");" << std::endl;
+        }
+        else {
+            std::cout << "v" << leftVar << " := int2real(v" << rightVar << ");" << std::endl;
+        }
     }
 }
 //</Negar>
@@ -3720,7 +3725,12 @@ void Converter::visitSIToFPInst(llvm::SIToFPInst &I) {
     if(!m_phase1){
         std::string leftVar = I.getName().str();
         std::string rightVar = I.getOperand(0)->getName().str();
-        std::cout << "v" << leftVar << " := int2real(v" << rightVar << ");" << std::endl;
+        if (signednessInfo) {
+            std::cout << "v" << leftVar << " := bv2real(v" << rightVar << ");" << std::endl;
+        }
+        else {
+            std::cout << "v" << leftVar << " := int2real(v" << rightVar << ");" << std::endl;
+        }
     }
 }
 //</Negar>
