@@ -3588,7 +3588,13 @@ void Converter::visitTruncInst(llvm::TruncInst &I)
         //<Negar>
         std::string leftVar = I.getName().str();
         std::string rightVar = I.getOperand(0)->getName().str();
-        std::cout << "v" << leftVar << " := v" << rightVar << ";" << std::endl;
+        if (signednessInfo) {
+            unsigned destinationBits = I.getType()->getIntegerBitWidth();
+            std::cout << "v" << leftVar << " := extract(" << (destinationBits - 1) << ", 0, v" << rightVar << ");" << std::endl;
+        }
+        else {
+            std::cout << "v" << leftVar << " := v" << rightVar << ";" << std::endl;
+        }
         //</Negar>
 
         m_idMap.insert(std::make_pair(&I, m_counter));
