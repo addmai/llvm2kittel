@@ -53,7 +53,7 @@ class Converter : public llvm::InstVisitor<Converter>
 public:
     //<Negar>
     //Converter(const llvm::Type *boolType, bool assumeIsControl, bool selectIsControl, bool onlyMultiPredIsControl, bool boundedIntegers, bool unsignedEncoding, bool onlyLoopConditions, DivRemConstraintType divisionConstraintType, bool bitwiseConditions, bool complexityTuples, const bool t2Output);
-    Converter(const llvm::Type *boolType, bool assumeIsControl, bool selectIsControl, bool onlyMultiPredIsControl, bool boundedIntegers, bool unsignedEncoding, bool onlyLoopConditions, DivRemConstraintType divisionConstraintType, bool bitwiseConditions, bool complexityTuples, const bool t2Output, bool unreachableExit, bool signednessInfo);
+    Converter(const llvm::Type *boolType, bool assumeIsControl, bool selectIsControl, bool onlyMultiPredIsControl, bool boundedIntegers, bool unsignedEncoding, bool onlyLoopConditions, DivRemConstraintType divisionConstraintType, bool bitwiseConditions, bool complexityTuples, const bool t2Output, bool signednessInfo, bool nondetTypeInfo, bool unreachableExit);
     //</Negar>
 
     void phase1(llvm::Function *function, std::set<llvm::Function*> &scc, MayMustMap &mmMap, std::map<llvm::Function*, std::set<llvm::GlobalVariable*> > &funcMayZap, TrueFalseMap &tfMap, std::set<llvm::BasicBlock*> &lcbs, ConditionMap &elcMap);
@@ -147,8 +147,9 @@ public:
 
 private:
     //<Negar>
-    bool unreachableExit;
     bool signednessInfo;
+    bool nondetTypeInfo;
+    bool unreachableExit;
     //</Negar>
 
     llvm::BasicBlock *m_entryBlock;

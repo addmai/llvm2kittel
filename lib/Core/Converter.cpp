@@ -83,7 +83,7 @@
 //          m_t2Output(t2Output)
 //{
 //}
-Converter::Converter(const llvm::Type *boolType, bool assumeIsControl, bool selectIsControl, bool onlyMultiPredIsControl, bool boundedIntegers, bool unsignedEncoding, bool onlyLoopConditions, DivRemConstraintType divisionConstraintType, bool bitwiseConditions, bool complexityTuples, const bool t2Output, bool unreachableExit, bool signednessInfo)
+Converter::Converter(const llvm::Type *boolType, bool assumeIsControl, bool selectIsControl, bool onlyMultiPredIsControl, bool boundedIntegers, bool unsignedEncoding, bool onlyLoopConditions, DivRemConstraintType divisionConstraintType, bool bitwiseConditions, bool complexityTuples, const bool t2Output, bool signednessInfo, bool nondetTypeInfo, bool unreachableExit)
     : m_entryBlock(NULL),
       m_boolType(boolType),
       m_blockRules(),
@@ -119,8 +119,9 @@ Converter::Converter(const llvm::Type *boolType, bool assumeIsControl, bool sele
       m_complexityTuples(complexityTuples),
       m_complexityLHSs(),
       m_t2Output(t2Output),
-      unreachableExit(unreachableExit),
-      signednessInfo(signednessInfo)
+      signednessInfo(signednessInfo),
+      nondetTypeInfo(nondetTypeInfo),
+      unreachableExit(unreachableExit)
 {
 }
 //</Negar>
@@ -2679,8 +2680,27 @@ void Converter::visitCallInst(llvm::CallInst &I)
 
                 if (m_t2Output)
                 {
-                    //std::cout << (nondef->toString()) << ":= nondet();" << std::endl;
-                    std::cout << (getVar(&I)) << " := nondet();" << std::endl;
+                    //<Negar>
+                    if (nondetTypeInfo) {
+                        llvm::Function *calledFunc = I.getCalledFunction();
+                        if (calledFunc) {
+                            std::string funcName = calledFunc->getName().str();
+                            const std::string prefix = "__VERIFIER_nondet_";
+                            if (funcName.find(prefix) == 0) {
+                                std::string typeSuffix = funcName.substr(prefix.size());
+                                std::cout << (getVar(&I)) << " := nondet_" + typeSuffix + "();" << std::endl;
+                            }
+                        }
+                    }
+                    else {
+                    //</Negar>
+
+                        //std::cout << (nondef->toString()) << ":= nondet();" << std::endl;
+                        std::cout << (getVar(&I)) << " := nondet();" << std::endl;
+
+                    //<Negar>
+                    }
+                    //</Negar>
                 }
 
                 newArgs = getZappedArgs(toZap, I, nondef);
