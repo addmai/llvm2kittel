@@ -335,7 +335,7 @@ void Converter::phase2(llvm::Function *function, std::set<llvm::Function *> &scc
     if (m_trivial)
     {
         m_rules.push_back(Rule::create(Term::create(getEval(m_function, "start"), m_lhs), Term::create(getEval(m_function, "stop"), m_lhs), Constraint::_true));
-        return;
+        // return;
     }
     m_function = function;
     m_scc = scc;
