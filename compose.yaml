@@ -1,0 +1,22 @@
+# Dockerイメージにattachして諸々のテストを行う際のbind mountを行う
+services:
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: "llvm2kittel:latest"
+    tty: true
+    stdin_open: true
+    volumes:
+      - type: bind
+        source: .
+        target: /opt/llvm2kittel
+    command: >-
+      bash -c "\"mkdir -p /opt/llvm2kittel/build && cd /opt/llvm2kittel/build && CC=gcc-4.8 CXX=g++-4.8 cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PREFIX_PATH=/opt/llvm2kittel/build /opt/llvm2kittel
+      && make -j20\" && exec bash"
+    deploy:
+      resources:
+        limits:
+          memory: 16G
+    cap_add:
+    - SYS_PTRACE

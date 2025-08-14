@@ -1,9 +1,4 @@
-# termcomp2025用Dockerfile
-# 参加トラック: C, Integer_Transition_Systems
-# - coar + llvm2kittelを利用可能
-# - termcomp用に`solver`コマンドでmuvalの停止性判定機能を呼び出し可能に
-# - 参考にした`cav21ae_dt/Dockerfile`ではllvm-3.6.2をソースコードからビルドしていたが、ビルド済みバイナリの利用でも問題無さそう
-FROM ubuntu:18.04 AS llvm2kittel-builder
+FROM ubuntu:18.04 AS builder
 
 # Install dependencies for llvm and llvm2kittel
 RUN apt update && apt install -y \
@@ -30,26 +25,36 @@ RUN mv /opt/llvm-3.6.2.src/tools/cfe-3.6.2.src /opt/llvm-3.6.2.src/tools/clang
 
 # Build & install llvm
 WORKDIR /opt/llvm-3.6.2.src
-RUN mkdir build
+RUN mkdir -p build
 WORKDIR /opt/llvm-3.6.2.src/build
 RUN CC=gcc-4.8 CXX=g++-4.8 CFLAGS="-g" CXXFLAGS="-g" ../configure --enable-optimized
 RUN make -j20
 RUN make install
 
-ENV PATH="/opt/llvm-3.6.2/bin:$PATH"
+# 実行用・開発用で共通して同じパスでビルドを行う
+ENV PATH="/opt/llvm2kittel/build/:$PATH"
 
+
+# 実行用、コンテナ構築時にソースコードの転送とビルドを行う
+FROM builder AS runtime
 # Build llvm2kittel
 COPY . /opt/llvm2kittel
-WORKDIR /opt/llvm2kittel
-RUN mkdir build
+
+RUN mkdir -p /opt/llvm2kittel/build
 WORKDIR /opt/llvm2kittel/build
+
 RUN CC=gcc-4.8 CXX=g++-4.8 cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PREFIX_PATH=/opt/llvm2kittel/build ../
 RUN make -j20
 
-ENV PATH="/opt/llvm2kittel/build/:$PATH"
-
 WORKDIR /root
+
+
+# 開発用、コンテナ構築後にソースコードをbind mountしてビルドする
+# テストデータとしてベンチマーク問題をコンテナ上にダウンロードしておく
+FROM builder AS dev
 
 RUN git clone https://github.com/TermCOMP/TPDB.git
 RUN ln -s /opt/llvm2kittel/test /root/
 RUN ln -s /root/TPDB/C /root/benchmarks
+
+WORKDIR /opt/llvm2kittel/Build
