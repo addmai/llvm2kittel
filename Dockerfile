@@ -28,7 +28,7 @@ WORKDIR /opt/llvm-3.6.2.src
 RUN mkdir -p build
 WORKDIR /opt/llvm-3.6.2.src/build
 RUN CC=gcc-4.8 CXX=g++-4.8 CFLAGS="-g" CXXFLAGS="-g" ../configure --enable-optimized
-RUN make -j20
+RUN make -j $(nproc)
 RUN make install
 
 # 実行用・開発用で共通して同じパスでビルドを行う
@@ -44,7 +44,7 @@ RUN mkdir -p /opt/llvm2kittel/build
 WORKDIR /opt/llvm2kittel/build
 
 RUN CC=gcc-4.8 CXX=g++-4.8 cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PREFIX_PATH=/opt/llvm2kittel/build ../
-RUN make -j20
+RUN make -j $(nproc)
 
 WORKDIR /root
 
@@ -57,4 +57,4 @@ RUN git clone https://github.com/TermCOMP/TPDB.git
 RUN ln -s /opt/llvm2kittel/test /root/
 RUN ln -s /root/TPDB/C /root/benchmarks
 
-WORKDIR /opt/llvm2kittel/build
+WORKDIR /opt/llvm2kittel/test
