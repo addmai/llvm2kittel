@@ -57,4 +57,4 @@ RUN git clone https://github.com/TermCOMP/TPDB.git
 RUN ln -s /opt/llvm2kittel/test /root/
 RUN ln -s /root/TPDB/C /root/benchmarks
 
-WORKDIR /opt/llvm2kittel/Build
+WORKDIR /opt/llvm2kittel/build
