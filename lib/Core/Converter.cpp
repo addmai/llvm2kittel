@@ -269,23 +269,10 @@ void Converter::phase1(llvm::Function *function, std::set<llvm::Function *> &scc
                     // Define an array -> Globally -> One-dimensional -> 2
                     std::string arrayName = "v" + varName;
                     globalInsts.push_back(arrayName + " := nondet();");
-                    if (auto *dataArray = llvm::dyn_cast<llvm::ConstantDataArray>(const_cast<llvm::Constant *>(GV.getInitializer()))) {
-                        if (dataArray->isString()) {
-                            std::string dataArrayStr = dataArray->getAsString();
-                            for (unsigned i = 0; i < dataArrayStr.size(); ++i) {
-                                std::string value;
-                                switch (dataArrayStr[i]) {
-                                    case '\n':
-                                        value = "\'\\n\'";
-                                        break;
-                                    case '\0':
-                                        value = "\'\\0\'";
-                                        break;
-                                    default:
-                                        break;
-                                }
-                                globalInsts.push_back(arrayName + " := store_array(" + arrayName + ", " + std::to_string(i) + ", " + value + ");");
-                            }
+                    if (auto *dataArray = llvm::dyn_cast<llvm::ConstantDataArray>(const_cast<llvm::Constant *>(GV.getInitializer()))) {                     
+                        for (unsigned i = 0; i < dataArray->getNumElements(); ++i) {
+                            uint64_t value = dataArray->getElementAsInteger(i);
+                            globalInsts.push_back(arrayName + " := store_array(" + arrayName + ", " + std::to_string(i) + ", " + std::to_string(value) + ");");
                         }
                     }
                     if (std::find(oneDimArrs.begin(), oneDimArrs.end(), arrayName) == oneDimArrs.end()) {
