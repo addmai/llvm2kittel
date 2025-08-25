@@ -1315,12 +1315,26 @@ void Converter::visitTerminatorInst(llvm::TerminatorInst &I)
                     //        }
                     //    }
                     //}
-                    //</Negar>
 
-                    //<Negar>
-                    //else {
-                    //</Negar>
+                    if (llvm::PHINode *phiNode = llvm::dyn_cast<llvm::PHINode>(branchVal))
+                    {
+                        if (phiNode->getType()->isIntegerTy(1))
+                        {
+                            std::string phiVar = "var__temp_" + getVar(phiNode);
 
+                            std::cout << "FROM: " << (pBlock->getName().str()) << "_end;" << std::endl;
+                            std::cout << "assume(" <<  phiVar << " == true);" << std::endl;
+                            llvm::BasicBlock *tBlock = branch->getSuccessor(0);
+                            std::cout << "TO: " << (tBlock->getName().str()) << ";" << std::endl
+                                    << std::endl;
+
+                            //Transition where the condition doesn't hold.
+                            std::cout << "FROM: " << (pBlock->getName().str()) << "_end;" << std::endl;
+                            std::cout << "assume(" <<  phiVar << " == false);" << std::endl;
+                            llvm::BasicBlock *fBlock = branch->getSuccessor(1);
+                            std::cout << "TO: " << (fBlock->getName().str()) << ";" << std::endl;
+                        }
+                        else{
                         //Transition where the condition holds
                         std::cout << "FROM: " << (pBlock->getName().str()) << "_end;" << std::endl;
                         std::cout << "assume(" << (c->toT2String()) << ");" << std::endl;
@@ -1333,10 +1347,22 @@ void Converter::visitTerminatorInst(llvm::TerminatorInst &I)
                         std::cout << "assume(" << ((c->toNNF(true))->toT2String()) << ");" << std::endl;
                         llvm::BasicBlock *fBlock = branch->getSuccessor(1);
                         std::cout << "TO: " << (fBlock->getName().str()) << ";" << std::endl;
+                        }
+                    }
+                    else {
+                        //Transition where the condition holds
+                        std::cout << "FROM: " << (pBlock->getName().str()) << "_end;" << std::endl;
+                        std::cout << "assume(" << (c->toT2String()) << ");" << std::endl;
+                        llvm::BasicBlock *tBlock = branch->getSuccessor(0);
+                        std::cout << "TO: " << (tBlock->getName().str()) << ";" << std::endl
+                                  << std::endl;
 
-                    //<Negar>
-                    //}
-                    //</Negar>
+                        //Transition where the condition doesn't hold.
+                        std::cout << "FROM: " << (pBlock->getName().str()) << "_end;" << std::endl;
+                        std::cout << "assume(" << ((c->toNNF(true))->toT2String()) << ");" << std::endl;
+                        llvm::BasicBlock *fBlock = branch->getSuccessor(1);
+                        std::cout << "TO: " << (fBlock->getName().str()) << ";" << std::endl;
+                    }
                 }
             }
         }
