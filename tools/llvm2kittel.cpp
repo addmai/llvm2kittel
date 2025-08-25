@@ -667,8 +667,6 @@ int main(int argc, char *argv[])
         }
     }
 
-    std::cerr << "test of custom pass\n";
-    llvm::outs() << "test of custom pass\n";
     llvm::PassManager tailrecToLoopPass;
     tailrecToLoopPass.add(createTailRecursionToLoopPass());
     // NondefFactory nondef_factory(module);
