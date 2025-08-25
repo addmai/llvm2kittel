@@ -400,10 +400,10 @@ std::string getSccName(std::list<llvm::Function*> scc)
 /*
     This pass expands tail recursions with `tail call` into loops.
 */
-struct TailCallToLoopPass : public llvm::FunctionPass {
+struct TailRecursionToLoopPass : public llvm::FunctionPass {
     static char ID;
-    TailCallToLoopPass() : llvm::FunctionPass(ID) {}
-    ~TailCallToLoopPass(){}
+    TailRecursionToLoopPass() : llvm::FunctionPass(ID) {}
+    ~TailRecursionToLoopPass(){}
     
     // Delete the specified instruction and all dependent instructions recursively.
     static void recursivelyDeleteUses(llvm::Instruction *I) {
@@ -532,14 +532,14 @@ struct TailCallToLoopPass : public llvm::FunctionPass {
     }
 };
 
-char TailCallToLoopPass::ID = 0;
+char TailRecursionToLoopPass::ID = 0;
 
 // Register the pass with the legacy pass manager
-static llvm::RegisterPass<TailCallToLoopPass> X("tail-to-loop", "Tail Call to Loop Conversion Pass");
+static llvm::RegisterPass<TailRecursionToLoopPass> X("tailrec-to-loop", "Tail Recursion to Loop Conversion Pass");
 
 // Provide a factory function for opt to load the pass
-extern "C" llvm::Pass* createTailCallToLoopPass() {
-    return new TailCallToLoopPass();
+extern "C" llvm::Pass* createTailRecursionToLoopPass() {
+    return new TailRecursionToLoopPass();
 }
 
 int main(int argc, char *argv[])
@@ -669,13 +669,13 @@ int main(int argc, char *argv[])
 
     std::cerr << "test of custom pass\n";
     llvm::outs() << "test of custom pass\n";
-    llvm::PassManager tailToLoopPass;
-    tailToLoopPass.add(createTailCallToLoopPass());
+    llvm::PassManager tailrecToLoopPass;
+    tailrecToLoopPass.add(createTailRecursionToLoopPass());
     // NondefFactory nondef_factory(module);
-    // tailToLoopPass.add(createMem2RegPass(nondef_factory));
-    tailToLoopPass.run(*module);
+    // tailrecToLoopPass.add(createMem2RegPass(nondef_factory));
+    tailrecToLoopPass.run(*module);
     
-    std::string outFile = "outputs/tailToLoopPass.ll";
+    std::string outFile = "outputs/tailrecToLoopPass.ll";
     llvm::raw_fd_ostream stream(outFile.data(), ec, llvm::sys::fs::F_Text);
     if (ec) {
         std::cerr << "Cannot open the test file: " << outFile << std::endl;
