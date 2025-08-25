@@ -76,6 +76,7 @@
 #endif
 #if LLVM_VERSION >= VERSION(3, 5)
   #include <llvm/Support/FileSystem.h>
+  #include <llvm/IR/IRBuilder.h>
 #endif
 #include "WARN_ON.h"
 
@@ -396,6 +397,134 @@ std::string getSccName(std::list<llvm::Function*> scc)
     return sstream.str();
 }
 
+/*
+    This pass expands tail recursions with `tail call` into loops.
+*/
+struct TailCallToLoopPass : public llvm::FunctionPass {
+    static char ID;
+    TailCallToLoopPass() : llvm::FunctionPass(ID) {}
+    ~TailCallToLoopPass(){}
+    
+    // Delete the specified instruction and all dependent instructions recursively.
+    static void recursivelyDeleteUses(llvm::Instruction *I) {
+        if (!I || I->use_empty()) {
+            I->eraseFromParent();
+            return;
+        }
+
+        std::vector<llvm::User*> users(I->user_begin(), I->user_end());
+
+        for (llvm::User *user : users) {
+            if (llvm::Instruction *userInst = llvm::dyn_cast<llvm::Instruction>(user)) {
+                recursivelyDeleteUses(userInst);
+            }
+        }
+        
+        I->eraseFromParent();
+    }
+
+    // Replace all occurrences of `oldValue` in `userInst`'s operands with `newValue`.
+    static void replaceAllOperandsWith(llvm::Instruction *userInst, llvm::Value *oldValue, llvm::Value *newValue) {
+        for (unsigned i = 0; i < userInst->getNumOperands(); ++i) {
+            if (userInst->getOperand(i) == oldValue) {
+                userInst->setOperand(i, newValue);
+            }
+        }
+    }
+
+    virtual bool runOnFunction(llvm::Function &F) {
+        // std::cout << "runOnFunction: " << F.getName().str() << "\n";
+        bool modified = false;
+
+        // An IRBuilder is used to insert instructions before CI.
+        llvm::IRBuilder<> builder(F.getContext());
+        
+        for (llvm::BasicBlock &BB : F) {
+            // Search the `tail call` which is tail recursion.
+            auto it_search = BB.begin();
+            while (it_search != BB.end()) {
+                if (llvm::CallInst *CI = llvm::dyn_cast<llvm::CallInst>(it_search)){
+                    if (CI->isTailCall() && CI->getCalledFunction() == &F) {
+                        break;
+                    }
+                }
+
+                it_search++;
+            }
+
+            if (it_search == BB.end()) {
+                continue;
+            }
+
+            // std::cout << "Found tail recursive call in function: " << F.getName().str() << "\n";
+            
+            llvm::BasicBlock *entry_block = &F.getEntryBlock();
+            llvm::BasicBlock *dummy_entry = llvm::BasicBlock::Create(F.getContext(), "dummy_entry", &F, entry_block);
+            llvm::BranchInst::Create(entry_block, dummy_entry);
+
+            std::vector<llvm::AllocaInst*> argAllocas;
+
+            for (llvm::Argument &arg : F.args()) {
+                builder.SetInsertPoint(dummy_entry->getFirstInsertionPt());
+                llvm::AllocaInst* allocaInst = builder.CreateAlloca(arg.getType(), nullptr, "arg_alloca");
+                llvm::StoreInst* storeInst = builder.CreateStore(&arg, allocaInst);
+
+                for (llvm::User* user : arg.users()) {
+                    if (llvm::Instruction* userInst = llvm::dyn_cast<llvm::Instruction>(user)) {
+                        if (userInst != storeInst) {
+                            builder.SetInsertPoint(userInst);
+                            llvm::LoadInst* loadInst = builder.CreateLoad(allocaInst, "arg_load");
+                            replaceAllOperandsWith(
+                                userInst,
+                                static_cast<llvm::Value*>(&arg),
+                                static_cast<llvm::Value*>(loadInst)
+                            );
+                        }
+                    }
+                }
+
+                argAllocas.push_back(allocaInst);
+            }
+
+            std::vector<llvm::Instruction*> v;
+            for (auto it = it_search; it != BB.end(); it++) {
+                v.push_back(it);
+            }
+            
+            llvm::CallInst *CI = llvm::dyn_cast<llvm::CallInst>(it_search);
+            builder.SetInsertPoint(CI);
+
+            // Store the new argument values to the allocas.
+            for (unsigned i = 0; i < CI->getNumArgOperands(); ++i) {
+                builder.CreateStore(CI->getArgOperand(i), argAllocas[i]);
+
+            }
+
+            for (auto it_delete = v.rbegin(); it_delete != v.rend();) {
+                auto to_delete = it_delete;
+                it_delete++;
+                recursivelyDeleteUses(*to_delete);
+            }
+
+            llvm::BranchInst::Create(entry_block, &BB);
+
+            modified = true;
+            break;
+        }
+        return modified;
+    }
+};
+
+char TailCallToLoopPass::ID = 0;
+
+// Register the pass with the legacy pass manager
+static llvm::RegisterPass<TailCallToLoopPass> X("tail-to-loop", "Tail Call to Loop Conversion Pass");
+
+// Provide a factory function for opt to load the pass
+extern "C" llvm::Pass* createTailCallToLoopPass() {
+    return new TailCallToLoopPass();
+}
+
 int main(int argc, char *argv[])
 {
     cl::SetVersionPrinter(&versionPrinter);
@@ -520,6 +649,22 @@ int main(int argc, char *argv[])
             return 5;
         }
     }
+
+    std::cerr << "test of custom pass\n";
+    llvm::outs() << "test of custom pass\n";
+    llvm::PassManager tailToLoopPass;
+    tailToLoopPass.add(createTailCallToLoopPass());
+    // NondefFactory nondef_factory(module);
+    // tailToLoopPass.add(createMem2RegPass(nondef_factory));
+    tailToLoopPass.run(*module);
+    
+    std::string outFile = "outputs/tailToLoopPass.ll";
+    llvm::raw_fd_ostream stream(outFile.data(), ec, llvm::sys::fs::F_Text);
+    if (ec) {
+        std::cerr << "Cannot open the test file: " << outFile << std::endl;
+    }
+    stream << *module << '\n';
+    stream.close();
 
     // check for cyclic call hierarchies
     HierarchyBuilder checkHierarchy;
