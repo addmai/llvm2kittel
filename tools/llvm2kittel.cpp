@@ -458,17 +458,31 @@ struct TailCallToLoopPass : public llvm::FunctionPass {
 
             // std::cout << "Found tail recursive call in function: " << F.getName().str() << "\n";
             
+
+            /*
+                Replace `tail call` with `br` to entry-block.
+                However, LLVM-IR does not permit a function's entry block to have any predecessors.
+                Therefore, a new block is inserted before the current entry block as a "dummy_entry".
+            */
             llvm::BasicBlock *entry_block = &F.getEntryBlock();
             llvm::BasicBlock *dummy_entry = llvm::BasicBlock::Create(F.getContext(), "dummy_entry", &F, entry_block);
             llvm::BranchInst::Create(entry_block, dummy_entry);
 
-            std::vector<llvm::AllocaInst*> argAllocas;
 
+            /*
+                Overwrite the original function's arguments with those from the `tail call`:
+                1. Allocate memory to store the new argument values.
+                2. Replace all uses of the original arguments with values loaded from this memory.
+                3. Store the arguments from the `tail call` into the allocated memory.
+            */
+            std::vector<llvm::AllocaInst*> argAllocas;
             for (llvm::Argument &arg : F.args()) {
+                // Allocate memory to store the new argument values.
                 builder.SetInsertPoint(dummy_entry->getFirstInsertionPt());
                 llvm::AllocaInst* allocaInst = builder.CreateAlloca(arg.getType(), nullptr, "arg_alloca");
                 llvm::StoreInst* storeInst = builder.CreateStore(&arg, allocaInst);
 
+                // Replace all uses of the original arguments with values loaded from this memory.
                 for (llvm::User* user : arg.users()) {
                     if (llvm::Instruction* userInst = llvm::dyn_cast<llvm::Instruction>(user)) {
                         if (userInst != storeInst) {
@@ -485,12 +499,8 @@ struct TailCallToLoopPass : public llvm::FunctionPass {
 
                 argAllocas.push_back(allocaInst);
             }
-
-            std::vector<llvm::Instruction*> v;
-            for (auto it = it_search; it != BB.end(); it++) {
-                v.push_back(it);
-            }
             
+            // Store the arguments from the `tail call` into the allocated memory.
             llvm::CallInst *CI = llvm::dyn_cast<llvm::CallInst>(it_search);
             builder.SetInsertPoint(CI);
 
@@ -500,12 +510,19 @@ struct TailCallToLoopPass : public llvm::FunctionPass {
 
             }
 
+            // Delete the `tail call` and all instructions that follow it within the same basic block.
+            std::vector<llvm::Instruction*> v;
+            for (auto it = it_search; it != BB.end(); it++) {
+                v.push_back(it);
+            }
+
             for (auto it_delete = v.rbegin(); it_delete != v.rend();) {
                 auto to_delete = it_delete;
                 it_delete++;
                 recursivelyDeleteUses(*to_delete);
             }
 
+            // Insert `br` to original entry block.
             llvm::BranchInst::Create(entry_block, &BB);
 
             modified = true;
