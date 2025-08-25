@@ -673,7 +673,7 @@ int main(int argc, char *argv[])
     // tailrecToLoopPass.add(createMem2RegPass(nondef_factory));
     tailrecToLoopPass.run(*module);
     
-    std::string outFile = "outputs/tailrecToLoopPass.ll";
+    std::string outFile = filename.substr(0, filename.length() - 3) + "_tailRecursionToLoop.ll";
     llvm::raw_fd_ostream stream(outFile.data(), ec, llvm::sys::fs::F_Text);
     if (ec) {
         std::cerr << "Cannot open the test file: " << outFile << std::endl;
