@@ -78,7 +78,7 @@ std::string True::toSMTString(bool)
 
 std::string True::toT2String()
 {
-    return "0 >= 0";
+    return "0 <= 0";
 }
 
 ref<Constraint> True::instantiate(std::map<std::string, ref<Polynomial> > *)
@@ -167,7 +167,7 @@ std::string False::toSMTString(bool)
 
 std::string False::toT2String()
 {
-    return "1 >= 0";
+    return "1 <= 0";
 }
 
 ref<Constraint> False::instantiate(std::map<std::string, ref<Polynomial> > *)
