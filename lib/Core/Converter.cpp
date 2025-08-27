@@ -3420,6 +3420,19 @@ void Converter::visitZExtInst(llvm::ZExtInst &I)
         std::string basicBlockName = basicBlock->getName().str();
         llvm::Value *preInst = I.getOperand(0);
         llvm::ICmpInst *preCmpInst = dyn_cast<llvm::ICmpInst>(preInst);
+
+        // Check if cmp -> xor -> 
+        if (preInst->getType()->isIntegerTy(1)) {
+            if (llvm::BinaryOperator *preBinaryOp = dyn_cast<llvm::BinaryOperator>(preInst)) {
+                if (preBinaryOp->getOpcode() == llvm::Instruction::Xor) {
+                    if (llvm::ConstantInt* CI = llvm::dyn_cast<llvm::ConstantInt>(preBinaryOp->getOperand(1))) {
+                        if (CI->isOne()) {
+                            preCmpInst = dyn_cast<llvm::ICmpInst>(preBinaryOp->getOperand(0));
+                        }
+                    }
+                }
+            }
+        }
         if (preCmpInst) {
             llvm::ICmpInst::Predicate op = preCmpInst->getPredicate();
             std::string trueOp;
