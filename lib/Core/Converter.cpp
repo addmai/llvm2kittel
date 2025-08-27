@@ -3421,18 +3421,6 @@ void Converter::visitZExtInst(llvm::ZExtInst &I)
         llvm::Value *preInst = I.getOperand(0);
         llvm::ICmpInst *preCmpInst = dyn_cast<llvm::ICmpInst>(preInst);
 
-        // Check if cmp -> xor -> 
-        if (preInst->getType()->isIntegerTy(1)) {
-            if (llvm::BinaryOperator *preBinaryOp = dyn_cast<llvm::BinaryOperator>(preInst)) {
-                if (preBinaryOp->getOpcode() == llvm::Instruction::Xor) {
-                    if (llvm::ConstantInt* CI = llvm::dyn_cast<llvm::ConstantInt>(preBinaryOp->getOperand(1))) {
-                        if (CI->isOne()) {
-                            preCmpInst = dyn_cast<llvm::ICmpInst>(preBinaryOp->getOperand(0));
-                        }
-                    }
-                }
-            }
-        }
         if (preCmpInst) {
             llvm::ICmpInst::Predicate op = preCmpInst->getPredicate();
             std::string trueOp;
@@ -3549,6 +3537,22 @@ void Converter::visitZExtInst(llvm::ZExtInst &I)
             std::cout << "TO: " << basicBlockName << "_s" << result << ";\n\n";
             std::cout << "FROM: " << basicBlockName << "_" << result << ";\n";
             std::cout << "assume(" << leftOperandStr << " " << falseOp << " " << rightOperandStr << ");\n";
+            std::cout << result << " := 0;\n";
+            std::cout << "TO: " << basicBlockName << "_s" << result << ";\n\n";
+            std::cout << "FROM: " << basicBlockName << "_s" << result << ";\n";
+        }
+        else if(preInst->getType()->isIntegerTy(1)) {
+            std::string result = "v" + I.getOperand(0)->getName().str();
+
+            ref<Constraint> c = getConditionFromValue(preInst);
+
+            std::cout << "TO: " << basicBlockName << "_" << result << ";\n\n";
+            std::cout << "FROM: " << basicBlockName << "_" << result << ";\n";
+            std::cout << "assume(" << (c->toT2String()) << ");\n";
+            std::cout << result << " := 1;\n";
+            std::cout << "TO: " << basicBlockName << "_s" << result << ";\n\n";
+            std::cout << "FROM: " << basicBlockName << "_" << result << ";\n";
+            std::cout << "assume(" << ((c->toNNF(true))->toT2String()) << ");\n";
             std::cout << result << " := 0;\n";
             std::cout << "TO: " << basicBlockName << "_s" << result << ";\n\n";
             std::cout << "FROM: " << basicBlockName << "_s" << result << ";\n";
