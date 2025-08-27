@@ -621,6 +621,13 @@ ref<Constraint> Converter::getConditionFromInstruction(llvm::Instruction *I)
         llvm::CmpInst *cmp = llvm::cast<llvm::CmpInst>(I);
         if (cmp->getOperand(0)->getType()->isPointerTy())
         {
+            if (llvm::cast<llvm::PointerType>(cmp->getOperand(0)->getType())->getElementType()->isIntegerTy(8) &&
+                cmp->getPredicate()==llvm::CmpInst::ICMP_NE && 
+                llvm::isa<llvm::ConstantPointerNull>(cmp->getOperand(1))
+            )
+            {
+                return Atom::create(getPolynomial(llvm::cast<llvm::Instruction>(cmp->getOperand(0))->getOperand(0)), Polynomial::null, Atom::Neq);
+            }
             return Nondef::create();
         }
         else if (cmp->getOperand(0)->getType()->isFloatingPointTy())
