@@ -3420,6 +3420,7 @@ void Converter::visitZExtInst(llvm::ZExtInst &I)
         std::string basicBlockName = basicBlock->getName().str();
         llvm::Value *preInst = I.getOperand(0);
         llvm::ICmpInst *preCmpInst = dyn_cast<llvm::ICmpInst>(preInst);
+
         if (preCmpInst) {
             llvm::ICmpInst::Predicate op = preCmpInst->getPredicate();
             std::string trueOp;
@@ -3536,6 +3537,22 @@ void Converter::visitZExtInst(llvm::ZExtInst &I)
             std::cout << "TO: " << basicBlockName << "_s" << result << ";\n\n";
             std::cout << "FROM: " << basicBlockName << "_" << result << ";\n";
             std::cout << "assume(" << leftOperandStr << " " << falseOp << " " << rightOperandStr << ");\n";
+            std::cout << result << " := 0;\n";
+            std::cout << "TO: " << basicBlockName << "_s" << result << ";\n\n";
+            std::cout << "FROM: " << basicBlockName << "_s" << result << ";\n";
+        }
+        else if(preInst->getType()->isIntegerTy(1)) {
+            std::string result = "v" + I.getOperand(0)->getName().str();
+
+            ref<Constraint> c = getConditionFromValue(preInst);
+
+            std::cout << "TO: " << basicBlockName << "_" << result << ";\n\n";
+            std::cout << "FROM: " << basicBlockName << "_" << result << ";\n";
+            std::cout << "assume(" << (c->toT2String()) << ");\n";
+            std::cout << result << " := 1;\n";
+            std::cout << "TO: " << basicBlockName << "_s" << result << ";\n\n";
+            std::cout << "FROM: " << basicBlockName << "_" << result << ";\n";
+            std::cout << "assume(" << ((c->toNNF(true))->toT2String()) << ");\n";
             std::cout << result << " := 0;\n";
             std::cout << "TO: " << basicBlockName << "_s" << result << ";\n\n";
             std::cout << "FROM: " << basicBlockName << "_s" << result << ";\n";
