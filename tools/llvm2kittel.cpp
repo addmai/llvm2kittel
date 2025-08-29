@@ -667,19 +667,19 @@ int main(int argc, char *argv[])
         }
     }
 
-    llvm::PassManager tailrecToLoopPass;
-    tailrecToLoopPass.add(createTailRecursionToLoopPass());
+    // llvm::PassManager tailrecToLoopPass;
+    // tailrecToLoopPass.add(createTailRecursionToLoopPass());
     // NondefFactory nondef_factory(module);
     // tailrecToLoopPass.add(createMem2RegPass(nondef_factory));
-    tailrecToLoopPass.run(*module);
+    // tailrecToLoopPass.run(*module);
     
-    std::string outFile = filename.substr(0, filename.length() - 3) + "_tailRecursionToLoop.ll";
-    llvm::raw_fd_ostream stream(outFile.data(), ec, llvm::sys::fs::F_Text);
-    if (ec) {
-        std::cerr << "Cannot open the test file: " << outFile << std::endl;
-    }
-    stream << *module << '\n';
-    stream.close();
+    // std::string outFile = filename.substr(0, filename.length() - 3) + "_tailRecursionToLoop.ll";
+    // llvm::raw_fd_ostream stream(outFile.data(), ec, llvm::sys::fs::F_Text);
+    // if (ec) {
+    //     std::cerr << "Cannot open the test file: " << outFile << std::endl;
+    // }
+    // stream << *module << '\n';
+    // stream.close();
 
     // check for cyclic call hierarchies
     HierarchyBuilder checkHierarchy;
