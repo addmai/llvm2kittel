@@ -1,0 +1,123 @@
+#!/bin/bash
+
+# llvm2kittel wrapper script for Docker
+# Usage: ./llvm2kittel <input.c> [--output <output.t2>]
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+IMAGE_NAME="llvm2kittel:latest"
+
+# ヘルプメッセージ
+show_help() {
+    cat << EOF
+使用法: $0 <input.c> [--output <output.t2>]
+
+説明:
+    Docker内でllvm2kittelを実行し、CファイルをT2フォーマットに変換します。
+
+オプション:
+    --output <file>    出力ファイルのパス（指定しない場合はstdoutに出力）
+    -h, --help         このヘルプメッセージを表示
+
+例:
+    $0 prog.c --output prog.t2
+    $0 prog.c > output.t2
+EOF
+}
+
+# 引数のパース
+INPUT_FILE=""
+OUTPUT_FILE=""
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -h|--help)
+            show_help
+            exit 0
+            ;;
+        --output)
+            OUTPUT_FILE="$2"
+            shift 2
+            ;;
+        *)
+            if [[ -z "$INPUT_FILE" ]]; then
+                INPUT_FILE="$1"
+            else
+                echo "エラー: 不明な引数: $1" >&2
+                show_help >&2
+                exit 1
+            fi
+            shift
+            ;;
+    esac
+done
+
+# 入力ファイルのチェック
+if [[ -z "$INPUT_FILE" ]]; then
+    echo "エラー: 入力ファイルを指定してください" >&2
+    show_help >&2
+    exit 1
+fi
+
+if [[ ! -f "$INPUT_FILE" ]]; then
+    echo "エラー: ファイルが見つかりません: $INPUT_FILE" >&2
+    exit 1
+fi
+
+# 入力ファイルの絶対パスを取得
+INPUT_FILE_ABS="$(cd "$(dirname "$INPUT_FILE")" && pwd)/$(basename "$INPUT_FILE")"
+INPUT_DIR="$(dirname "$INPUT_FILE_ABS")"
+INPUT_BASENAME="$(basename "$INPUT_FILE_ABS")"
+INPUT_FILESTEM="${INPUT_BASENAME%.c}"
+
+# Dockerイメージの存在確認とビルド
+if ! docker image inspect "$IMAGE_NAME" >/dev/null 2>&1; then
+    echo "Dockerイメージが見つかりません。ビルドを開始します..." >&2
+    docker build -t "$IMAGE_NAME" --target runtime "$SCRIPT_DIR"
+    echo "ビルドが完了しました。" >&2
+fi
+
+# 一時ディレクトリを作成
+TEMP_DIR=$(mktemp -d)
+trap "rm -rf $TEMP_DIR" EXIT
+
+# 入力ファイルをコピー
+cp "$INPUT_FILE_ABS" "$TEMP_DIR/"
+
+# Docker内で変換処理を実行し、結果を変数に格納または出力
+if [[ -n "$OUTPUT_FILE" ]]; then
+    # 出力ファイルが指定されている場合
+    docker run --rm \
+        -v "$TEMP_DIR:/work" \
+        -w /work \
+        "$IMAGE_NAME" \
+        bash -c "
+            set -euo pipefail
+            
+            # .cから.bcへの変換
+            clang -Wall -Wextra -c -emit-llvm -O0 '$INPUT_BASENAME' -o '${INPUT_FILESTEM}.bc'
+            
+            # llvm2kittelでT2フォーマットに変換（stdoutへ出力）
+            # 注: opt最適化を無効化（定数畳み込みなどを防ぐため）
+            /opt/llvm2kittel/build/llvm2kittel --dump-ll --no-slicing --eager-inline --t2 '${INPUT_FILESTEM}.bc'
+        " > "$OUTPUT_FILE"
+    echo "変換が完了しました: $OUTPUT_FILE" >&2
+else
+    # 標準出力に出力
+    docker run --rm \
+        -v "$TEMP_DIR:/work" \
+        -w /work \
+        "$IMAGE_NAME" \
+        bash -c "
+            set -euo pipefail
+            
+            # .cから.bcへの変換
+            clang -Wall -Wextra -c -emit-llvm -O0 '$INPUT_BASENAME' -o '${INPUT_FILESTEM}.bc'
+            
+            # llvm2kittelでT2フォーマットに変換（stdoutへ出力）
+            # 注: opt最適化を無効化（定数畳み込みなどを防ぐため）
+            /opt/llvm2kittel/build/llvm2kittel --dump-ll --no-slicing --eager-inline --t2 '${INPUT_FILESTEM}.bc'
+        "
+fi
+
