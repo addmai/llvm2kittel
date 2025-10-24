@@ -332,6 +332,9 @@ private:
   std::set<std::string> m_complexityLHSs;
 
   const bool m_t2Output;
+  bool m_reachErrorCalled; // Global: track if reach_error() was called in phase
+  bool
+      m_currentBlockReachErrorCalled; // Local: track if called in current block
 
 private:
   Converter(const Converter &);
