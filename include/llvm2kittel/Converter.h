@@ -62,7 +62,7 @@ public:
             bool onlyLoopConditions,
             DivRemConstraintType divisionConstraintType, bool bitwiseConditions,
             bool complexityTuples, const bool t2Output, bool signednessInfo,
-            bool nondetTypeInfo, bool unreachableExit);
+            bool nondetTypeInfo, bool unreachableExit, bool ignoreReachError);
   //</Negar>
 
   void phase1(
@@ -335,6 +335,8 @@ private:
   bool m_reachErrorCalled; // Global: track if reach_error() was called in phase
   bool
       m_currentBlockReachErrorCalled; // Local: track if called in current block
+
+  const bool m_ignoreReachError; // If true, ignore reach_error() calls
 
 private:
   Converter(const Converter &);
