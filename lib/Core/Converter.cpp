@@ -624,7 +624,17 @@ ref<Constraint> Converter::getConditionFromInstruction(llvm::Instruction *I) {
   if (llvm::isa<llvm::ZExtInst>(I)) {
     return getConditionFromValue(I->getOperand(0));
   }
+  // Handle TruncInst (e.g., trunc i8 %c1.0 to i1)
+  if (llvm::isa<llvm::TruncInst>(I)) {
+    if (I->getType() == m_boolType) {
+      return Atom::create(getPolynomial(I), Polynomial::null, Atom::Neq);
+    }
+  }
   if (I->getType() != m_boolType) {
+    return Atom::create(getPolynomial(I), Polynomial::null, Atom::Neq);
+  }
+  // Handle PHI nodes with bool type
+  if (llvm::isa<llvm::PHINode>(I)) {
     return Atom::create(getPolynomial(I), Polynomial::null, Atom::Neq);
   }
   if (llvm::isa<llvm::CmpInst>(I)) {
@@ -2822,15 +2832,8 @@ void Converter::visitSelectInst(llvm::SelectInst &I) {
 }
 
 void Converter::visitPHINode(llvm::PHINode &I) {
-  if (I.getType() == m_boolType || !I.getType()->isIntegerTy()) {
-    //<Negar>
-    // if (!m_phase1) {
-    //    std::string phiVarName = I.getName().str();
-    //    std::cout << "v" << phiVarName << " := " << "var__temp_v" + phiVarName
-    //    << ";" << std::endl;
-    //}
-    //</Negar>
-
+  // Skip non-integer types (but process bool as i1)
+  if (!I.getType()->isIntegerTy()) {
     return;
   }
   std::string phiVar = getVar(&I);
@@ -3691,7 +3694,8 @@ void Converter::visitZExtInst(llvm::ZExtInst &I) {
 }
 
 void Converter::visitTruncInst(llvm::TruncInst &I) {
-  if (I.getType() == m_boolType) {
+  // Skip non-integer types (but process bool as i1)
+  if (!I.getType()->isIntegerTy()) {
     return;
   }
   if (m_phase1) {
