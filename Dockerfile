@@ -11,6 +11,7 @@ RUN apt update && apt install -y \
         g++-4.8 \
         cmake \
         python \
+        python3 \
         groff \
         libgmp-dev
 RUN apt clean \
@@ -27,7 +28,7 @@ RUN mv /opt/llvm-3.6.2.src/tools/cfe-3.6.2.src /opt/llvm-3.6.2.src/tools/clang
 WORKDIR /opt/llvm-3.6.2.src
 RUN mkdir -p build
 WORKDIR /opt/llvm-3.6.2.src/build
-RUN CC=gcc-4.8 CXX=g++-4.8 CFLAGS="-g" CXXFLAGS="-g" ../configure --enable-optimized
+RUN CC=gcc-4.8 CXX=g++-4.8 CFLAGS="-g" CXXFLAGS="-g" ../configure --enable-optimized --disable-bindings
 RUN make -j $(nproc)
 RUN make install
 
