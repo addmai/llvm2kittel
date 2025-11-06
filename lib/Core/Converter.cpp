@@ -307,7 +307,9 @@ void Converter::phase1(
         } else {
           // Define an array -> Globally -> One-dimensional -> 1
           std::string arrayName = "v" + varName;
-          if (GV.hasInitializer() &&
+          // Check if this is an integer array and zero-initialized
+          bool isIntegerArray = varType->getArrayElementType()->isIntegerTy();
+          if (isIntegerArray && GV.hasInitializer() &&
               llvm::isa<llvm::ConstantAggregateZero>(const_cast<llvm::Constant *>(GV.getInitializer()))) {
             globalInsts.push_back(arrayName + " := const_array(0);");
           } else {
@@ -1153,7 +1155,8 @@ std::list<ref<Polynomial>> Converter::getArgsWithPhis(llvm::BasicBlock *from,
       break;
     }
     llvm::PHINode *phi = llvm::cast<llvm::PHINode>(i);
-    if (phi->getType() == m_boolType || !phi->getType()->isIntegerTy()) {
+    // Skip non-integer types (but process bool as i1)
+    if (!phi->getType()->isIntegerTy()) {
       continue;
     }
     std::string PHIName = getVar(phi);
@@ -1276,6 +1279,14 @@ void Converter::visitTerminatorInst(llvm::TerminatorInst &I) {
         // will print transition from true to BB
         llvm::BasicBlock *iBlock = branch->getSuccessor(0);
         if (m_t2Output && !m_currentBlockReachErrorCalled) {
+          // Output phi assignments for iBlock
+          for (llvm::BasicBlock::iterator pi = iBlock->begin(); llvm::isa<llvm::PHINode>(pi); ++pi) {
+            llvm::PHINode *phi = llvm::cast<llvm::PHINode>(pi);
+            if (phi->getType()->isIntegerTy()) {
+              llvm::Value *val = phi->getIncomingValueForBlock(pBlock);
+              std::cout << "var__temp_" << getVar(phi) << " := " << getPolynomial(val)->toString() << ";" << std::endl;
+            }
+          }
           std::cout << "TO: " << (iBlock->getName().str()) << ";" << std::endl;
         }
       } else {
@@ -1353,6 +1364,14 @@ void Converter::visitTerminatorInst(llvm::TerminatorInst &I) {
                         << ensureValidAssumeCondition(c->toT2String()) << ");"
                         << std::endl;
               llvm::BasicBlock *tBlock = branch->getSuccessor(0);
+              // Output phi assignments for tBlock
+              for (llvm::BasicBlock::iterator pi = tBlock->begin(); llvm::isa<llvm::PHINode>(pi); ++pi) {
+                llvm::PHINode *phi = llvm::cast<llvm::PHINode>(pi);
+                if (phi->getType()->isIntegerTy()) {
+                  llvm::Value *val = phi->getIncomingValueForBlock(pBlock);
+                  std::cout << "var__temp_" << getVar(phi) << " := " << getPolynomial(val)->toString() << ";" << std::endl;
+                }
+              }
               std::cout << "TO: " << (tBlock->getName().str()) << ";"
                         << std::endl
                         << std::endl;
@@ -1365,6 +1384,14 @@ void Converter::visitTerminatorInst(llvm::TerminatorInst &I) {
                                (c->toNNF(true))->toT2String())
                         << ");" << std::endl;
               llvm::BasicBlock *fBlock = branch->getSuccessor(1);
+              // Output phi assignments for fBlock
+              for (llvm::BasicBlock::iterator pi = fBlock->begin(); llvm::isa<llvm::PHINode>(pi); ++pi) {
+                llvm::PHINode *phi = llvm::cast<llvm::PHINode>(pi);
+                if (phi->getType()->isIntegerTy()) {
+                  llvm::Value *val = phi->getIncomingValueForBlock(pBlock);
+                  std::cout << "var__temp_" << getVar(phi) << " := " << getPolynomial(val)->toString() << ";" << std::endl;
+                }
+              }
               std::cout << "TO: " << (fBlock->getName().str()) << ";"
                         << std::endl;
             }
@@ -1376,6 +1403,14 @@ void Converter::visitTerminatorInst(llvm::TerminatorInst &I) {
                       << ensureValidAssumeCondition(c->toT2String()) << ");"
                       << std::endl;
             llvm::BasicBlock *tBlock = branch->getSuccessor(0);
+            // Output phi assignments for tBlock
+            for (llvm::BasicBlock::iterator pi = tBlock->begin(); llvm::isa<llvm::PHINode>(pi); ++pi) {
+              llvm::PHINode *phi = llvm::cast<llvm::PHINode>(pi);
+              if (phi->getType()->isIntegerTy()) {
+                llvm::Value *val = phi->getIncomingValueForBlock(pBlock);
+                std::cout << "var__temp_" << getVar(phi) << " := " << getPolynomial(val)->toString() << ";" << std::endl;
+              }
+            }
             std::cout << "TO: " << (tBlock->getName().str()) << ";" << std::endl
                       << std::endl;
 
@@ -1387,6 +1422,14 @@ void Converter::visitTerminatorInst(llvm::TerminatorInst &I) {
                              (c->toNNF(true))->toT2String())
                       << ");" << std::endl;
             llvm::BasicBlock *fBlock = branch->getSuccessor(1);
+            // Output phi assignments for fBlock
+            for (llvm::BasicBlock::iterator pi = fBlock->begin(); llvm::isa<llvm::PHINode>(pi); ++pi) {
+              llvm::PHINode *phi = llvm::cast<llvm::PHINode>(pi);
+              if (phi->getType()->isIntegerTy()) {
+                llvm::Value *val = phi->getIncomingValueForBlock(pBlock);
+                std::cout << "var__temp_" << getVar(phi) << " := " << getPolynomial(val)->toString() << ";" << std::endl;
+              }
+            }
             std::cout << "TO: " << (fBlock->getName().str()) << ";"
                       << std::endl;
           }
@@ -2662,8 +2705,8 @@ void Converter::visitCallInst(llvm::CallInst &I) {
           // Special handling for error functions (reach_error, abort,
           // __VERIFIER_error, etc.)
           std::string funcName = callee->getName().str();
-          if (funcName == "reach_error" || funcName == "abort" ||
-              funcName == "__VERIFIER_error" || funcName == "__assert_fail") {
+          if (funcName == "reach_error" || funcName == "__VERIFIER_error" || 
+              funcName == "__assert_fail") {
             if (m_ignoreReachError) {
               // For termination analysis: treat reach_error() as empty function
               // Don't generate ERROR state or transitions
@@ -2679,6 +2722,10 @@ void Converter::visitCallInst(llvm::CallInst &I) {
               m_reachErrorCalled = true;
             }
             // Continue with normal non-returning behavior
+          } else if (funcName == "abort") {
+            // abort() is NOT treated as reach_error() for unreach-call verification
+            // It's a program termination, not an error state
+            // Let it be handled as unreachable (normal non-returning function)
           }
           // they don't mess with globals
           continue;
