@@ -1345,6 +1345,14 @@ void Converter::visitTerminatorInst(llvm::TerminatorInst &I) {
                         << std::endl;
               std::cout << "assume(" << phiVar << " == true);" << std::endl;
               llvm::BasicBlock *tBlock = branch->getSuccessor(0);
+              // Output phi assignments for tBlock
+              for (llvm::BasicBlock::iterator pi = tBlock->begin(); llvm::isa<llvm::PHINode>(pi); ++pi) {
+                llvm::PHINode *phi = llvm::cast<llvm::PHINode>(pi);
+                if (phi->getType()->isIntegerTy()) {
+                  llvm::Value *val = phi->getIncomingValueForBlock(pBlock);
+                  std::cout << "var__temp_" << getVar(phi) << " := " << getPolynomial(val)->toString() << ";" << std::endl;
+                }
+              }
               std::cout << "TO: " << (tBlock->getName().str()) << ";"
                         << std::endl
                         << std::endl;
@@ -1354,6 +1362,14 @@ void Converter::visitTerminatorInst(llvm::TerminatorInst &I) {
                         << std::endl;
               std::cout << "assume(" << phiVar << " == false);" << std::endl;
               llvm::BasicBlock *fBlock = branch->getSuccessor(1);
+              // Output phi assignments for fBlock
+              for (llvm::BasicBlock::iterator pi = fBlock->begin(); llvm::isa<llvm::PHINode>(pi); ++pi) {
+                llvm::PHINode *phi = llvm::cast<llvm::PHINode>(pi);
+                if (phi->getType()->isIntegerTy()) {
+                  llvm::Value *val = phi->getIncomingValueForBlock(pBlock);
+                  std::cout << "var__temp_" << getVar(phi) << " := " << getPolynomial(val)->toString() << ";" << std::endl;
+                }
+              }
               std::cout << "TO: " << (fBlock->getName().str()) << ";"
                         << std::endl;
             } else {
