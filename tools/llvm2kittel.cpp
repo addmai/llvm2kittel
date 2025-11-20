@@ -69,6 +69,7 @@
 #endif
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/raw_ostream.h>
+#include <llvm/IR/DebugInfo.h>
 #if LLVM_VERSION < VERSION(3, 5)
 #include <llvm/Support/system_error.h>
 #else
@@ -197,6 +198,10 @@ static cl::opt<bool> dumpLL("dump-ll",
                             cl::desc("Dump transformed bitcode into a file"),
                             cl::init(false));
 
+static cl::opt<bool> sourceInfo("source-info",
+                               cl::desc("Output CSV of source info and exit"),
+                               cl::init(false));
+
 static cl::opt<bool> t2Output("t2", cl::desc("Generate T2 format"),
                               cl::init(false), cl::ReallyHidden);
 static cl::opt<bool> complexityTuples("complexity-tuples",
@@ -233,6 +238,8 @@ static cl::opt<bool> ignoreReachError(
         "False: generate ERROR state and transitions (for safety analysis)."),
     cl::init(false)); // Default is false (safety analysis)
 //</Negar>
+
+void printSourceInfo(llvm::Module *module);
 
 void transformModule(llvm::Module *module, llvm::Function *function,
                      NondefFactory &ndf) {
@@ -803,6 +810,12 @@ int main(int argc, char *argv[]) {
   InstNamer namer;
   namer.visit(module);
 
+  // If requested, output per-BasicBlock source info as CSV and exit
+  if (sourceInfo) {
+    printSourceInfo(module);
+    return 0;
+  }
+
   // check them!
   const llvm::Type *boolType = llvm::Type::getInt1Ty(context);
   const llvm::Type *floatType = llvm::Type::getFloatTy(context);
@@ -1118,4 +1131,63 @@ int main(int argc, char *argv[]) {
   }
 
   return 0;
+}
+
+void printSourceInfo(llvm::Module *module){
+// CSV header: include bb index and optional file/dir
+    std::cout << "function,bb_index,bb_name,line,column,op" << std::endl;
+    for (llvm::Module::iterator fi = module->begin(), fe = module->end();
+         fi != fe; ++fi) {
+      llvm::Function &F = *fi;
+      if (F.isDeclaration())
+        continue;
+      unsigned bb_index = 0;
+      for (llvm::Function::iterator bbi = F.begin(), bbe = F.end(); bbi != bbe;
+           ++bbi, ++bb_index) {
+        llvm::BasicBlock &BB = *bbi;
+        unsigned line = 0;
+        unsigned col = 0;
+        std::string file;
+        std::string dir;
+        for (llvm::BasicBlock::iterator ii = BB.begin(), ie = BB.end(); ii != ie;
+             ++ii) {
+          llvm::Instruction &I = *ii;
+          // Prefer DebugLoc API when available
+          llvm::DebugLoc dbg = I.getDebugLoc();
+          if (!dbg.isUnknown()) {
+            line = dbg.getLine();
+            col = dbg.getCol();
+            if (llvm::MDNode *scope = dbg.getScope()) {
+              // Use DILocation to extract filename/directory in a compatible way
+              llvm::DILocation Loc(scope);
+              file = Loc.getFilename().str();
+              dir = Loc.getDirectory().str();
+            } else if (llvm::MDNode *md = dbg.getAsMDNode()) {
+              llvm::DILocation Loc(md);
+              file = Loc.getFilename().str();
+              dir = Loc.getDirectory().str();
+            }
+          }
+          // fallback to metadata node
+          else if (llvm::MDNode *N = I.getMetadata("dbg")) {
+            llvm::DILocation Loc(N);
+            line = Loc.getLineNumber();
+            col = Loc.getColumnNumber();
+            file = Loc.getFilename().str();
+            dir = Loc.getDirectory().str();
+          }
+
+		std::string bb_name = BB.getName().str();
+		// if (bb_name.empty()) {
+		//   std::ostringstream tmp;
+		//   tmp << "bb_" << bb_index;
+		//   bb_name = tmp.str();
+		// }
+
+      std::cout << F.getName().str() << "," << bb_index << "," << bb_name
+        << "," << line << "," << col << "," << I.getOpcodeName()
+		<<std::endl;
+        }
+      }
+    }
 }
