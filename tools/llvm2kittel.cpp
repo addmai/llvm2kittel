@@ -70,6 +70,8 @@
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/IR/DebugInfo.h>
+#include <llvm/IR/IntrinsicInst.h>
+#include <llvm/IR/Instructions.h>
 #if LLVM_VERSION < VERSION(3, 5)
 #include <llvm/Support/system_error.h>
 #else
@@ -87,6 +89,9 @@
 #include <iomanip>
 #include <iostream>
 #include <sstream>
+#include <unordered_map>
+#include <vector>
+#include <algorithm>
 
 // command line stuff
 
@@ -202,6 +207,11 @@ static cl::opt<bool> sourceInfo("source-info",
                                cl::desc("Output CSV of source info and exit"),
                                cl::init(false));
 
+static cl::opt<bool>
+  llvmVarToC("llvm-var-to-c",
+         cl::desc("Output CSV mapping LLVM IR values to C variable names (from debug info) and exit"),
+         cl::init(false));
+
 static cl::opt<bool> t2Output("t2", cl::desc("Generate T2 format"),
                               cl::init(false), cl::ReallyHidden);
 static cl::opt<bool> complexityTuples("complexity-tuples",
@@ -240,6 +250,7 @@ static cl::opt<bool> ignoreReachError(
 //</Negar>
 
 void printSourceInfo(llvm::Module *module);
+void printLLVMVarToC(llvm::Module *module);
 
 void transformModule(llvm::Module *module, llvm::Function *function,
                      NondefFactory &ndf) {
@@ -810,6 +821,12 @@ int main(int argc, char *argv[]) {
   InstNamer namer;
   namer.visit(module);
 
+  // If requested, output mapping from LLVM values to C variable names and exit
+  if (llvmVarToC) {
+    printLLVMVarToC(module);
+    return 0;
+  }
+
   // If requested, output per-BasicBlock source info as CSV and exit
   if (sourceInfo) {
     printSourceInfo(module);
@@ -1187,6 +1204,139 @@ void printSourceInfo(llvm::Module *module){
       std::cout << F.getName().str() << "," << bb_index << "," << bb_name
         << "," << line << "," << col << "," << I.getOpcodeName()
 		<<std::endl;
+        }
+      }
+    }
+}
+
+void printLLVMVarToC(llvm::Module *module) {
+  auto valueToString = [&](const llvm::Value *v) {
+    std::string s;
+    llvm::raw_string_ostream rso(s);
+    v->print(rso);
+    rso.flush();
+    return s;
+  };
+
+  auto instToString = [&](const llvm::Instruction *I) {
+    std::string s;
+    llvm::raw_string_ostream rso(s);
+    I->print(rso);
+    rso.flush();
+    return s;
+  };
+
+  std::cout << "function,bb_index,bb_name,ir_name,source_name" << std::endl;
+
+  std::map<const llvm::Value *, std::string> valToSrc;
+  std::map<std::string, std::string> reprToSrc;
+  std::set<const llvm::Value *> printedVals;
+
+  // First pass: collect dbg.declare / dbg.value (intrinsic and call forms)
+  for (llvm::Module::iterator fi = module->begin(), fe = module->end(); fi != fe; ++fi) {
+    llvm::Function &F = *fi;
+    if (F.isDeclaration()) continue;
+    unsigned bb_index = 0;
+    for (llvm::Function::iterator bbi = F.begin(), bbe = F.end(); bbi != bbe; ++bbi, ++bb_index) {
+      llvm::BasicBlock &BB = *bbi;
+      for (llvm::BasicBlock::iterator ii = BB.begin(), ie = BB.end(); ii != ie; ++ii) {
+        llvm::Instruction &I = *ii;
+        if (llvm::DbgDeclareInst *DDI = llvm::dyn_cast<llvm::DbgDeclareInst>(&I)) {
+          if (llvm::MDNode *varMD = DDI->getVariable()) {
+            llvm::DIVariable var(varMD);
+            std::string srcName = var.getName().str();
+            if (llvm::Value *addr = DDI->getAddress()) {
+              std::string ir_repr = valueToString(addr);
+              // record mapping but DO NOT print dbg.declare lines
+              valToSrc[addr] = srcName;
+              reprToSrc[ir_repr] = srcName;
+              printedVals.insert(addr);
+            }
+          }
+        } else if (llvm::DbgValueInst *DVI = llvm::dyn_cast<llvm::DbgValueInst>(&I)) {
+          if (llvm::MDNode *varMD = DVI->getVariable()) {
+            llvm::DIVariable var(varMD);
+            std::string srcName = var.getName().str();
+            if (llvm::Value *v = DVI->getValue()) {
+              std::string ir_repr = valueToString(v);
+              // record mapping but DO NOT print dbg.value lines
+              valToSrc[v] = srcName;
+              reprToSrc[ir_repr] = srcName;
+            }
+          }
+        } else if (llvm::CallInst *CI = llvm::dyn_cast<llvm::CallInst>(&I)) {
+          if (llvm::Function *CF = CI->getCalledFunction()) {
+            llvm::StringRef cname = CF->getName();
+            if (cname == "llvm.dbg.value") {
+              if (CI->getNumArgOperands() >= 3) {
+                if (llvm::MetadataAsValue *mav = llvm::dyn_cast<llvm::MetadataAsValue>(CI->getArgOperand(2))) {
+                  if (llvm::Metadata *md = mav->getMetadata()) {
+                    if (llvm::MDNode *varMD = llvm::dyn_cast<llvm::MDNode>(md)) {
+                      llvm::DIVariable var(varMD);
+                      std::string srcName = var.getName().str();
+                      std::string ir_repr;
+                      if (llvm::MetadataAsValue *valm = llvm::dyn_cast<llvm::MetadataAsValue>(CI->getArgOperand(0))) {
+                        std::string s; llvm::raw_string_ostream rso(s); valm->print(rso); rso.flush(); ir_repr = s;
+                      } else {
+                        ir_repr = instToString(&I);
+                      }
+                      // record mapping but DO NOT print dbg.value(call) lines
+                      reprToSrc[ir_repr] = srcName;
+                    }
+                  }
+                }
+              }
+            } else if (cname == "llvm.dbg.declare") {
+              if (CI->getNumArgOperands() >= 2) {
+                if (llvm::MetadataAsValue *mav = llvm::dyn_cast<llvm::MetadataAsValue>(CI->getArgOperand(1))) {
+                  if (llvm::Metadata *md = mav->getMetadata()) {
+                    if (llvm::MDNode *varMD = llvm::dyn_cast<llvm::MDNode>(md)) {
+                      llvm::DIVariable var(varMD);
+                      std::string srcName = var.getName().str();
+                      std::string ir_repr = instToString(&I);
+                      // record mapping but DO NOT print dbg.declare(call) lines
+                      reprToSrc[ir_repr] = srcName;
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Second pass: simple PHI inference using exact Value* or repr match
+  for (llvm::Module::iterator fi = module->begin(), fe = module->end(); fi != fe; ++fi) {
+    llvm::Function &F = *fi;
+    if (F.isDeclaration()) continue;
+    unsigned bb_index = 0;
+    for (llvm::Function::iterator bbi = F.begin(), bbe = F.end(); bbi != bbe; ++bbi, ++bb_index) {
+      llvm::BasicBlock &BB = *bbi;
+      for (llvm::BasicBlock::iterator ii = BB.begin(), ie = BB.end(); ii != ie; ++ii) {
+        if (llvm::PHINode *PN = llvm::dyn_cast<llvm::PHINode>(&*ii)) {
+          if (!PN->hasName()) continue;
+          if (printedVals.find(PN) != printedVals.end()) continue;
+          bool matched = false;
+          std::string srcName;
+          for (unsigned k = 0; k < PN->getNumIncomingValues(); ++k) {
+            llvm::Value *inc = PN->getIncomingValue(k);
+            auto itv = valToSrc.find(inc);
+            if (itv != valToSrc.end()) { matched = true; srcName = itv->second; break; }
+            std::string inc_repr = valueToString(inc);
+            auto itr = reprToSrc.find(inc_repr);
+            if (itr != reprToSrc.end()) { matched = true; srcName = itr->second; break; }
+          }
+          if (matched) {
+            std::string ir_name = PN->getName().str();
+            std::string ir_repr = instToString(PN);
+            std::string inst_repr = instToString(PN);
+            std::cout << F.getName().str() << "," << bb_index << "," << BB.getName().str()
+                      << "," << ir_name << "," << srcName << std::endl;
+            printedVals.insert(PN);
+          }
+        }
         }
       }
     }
