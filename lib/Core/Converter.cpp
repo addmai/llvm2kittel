@@ -3131,12 +3131,6 @@ void Converter::visitGetElementPtrInst(llvm::GetElementPtrInst &gepInst) {
           }
           return;
         }
-        if (it == getElementPtrInsts.end()) {
-          if (!varName.empty()) {
-            std::cout << "v" << varName << " := nondet();" << std::endl;
-          }
-          return;
-        }
         std::string arrayName = it->array;
         std::string index = it->index;
         llvm::Value *offsetOperand =
