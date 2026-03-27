@@ -1,0 +1,98 @@
+commit f907382d65eed41f4b6e2ad8f8d4711e550ab949
+Author: iwancof <rock.iwancof@gmail.com>
+Date:   Thu Nov 6 15:58:12 2025 +0900
+
+    fix phi expr
+
+ lib/Core/Converter.cpp | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+
+commit 1532373c6875f960a2b2b01040a3171263046062
+Author: iwancof <rock.iwancof@gmail.com>
+Date:   Thu Nov 6 14:03:06 2025 +0900
+
+    separate abort, reach_error
+
+ lib/Core/Converter.cpp | 55 ++++++++++++++++++++++++++++++++++++++++++++++----
+ 1 file changed, 51 insertions(+), 4 deletions(-)
+
+commit 6870b487a77a0b819122dcfd465762a4fde67dd5
+Author: iwancof <rock.iwancof@gmail.com>
+Date:   Thu Nov 6 03:36:53 2025 +0900
+
+    treat uninitialized global array as 0 initialized
+
+ lib/Core/Converter.cpp | 14 ++++++--------
+ 1 file changed, 6 insertions(+), 8 deletions(-)
+
+commit d63a168f593d769fe4dfc9c228d361cc6b25dcca
+Author: iwancof <rock.iwancof@gmail.com>
+Date:   Wed Nov 5 23:50:28 2025 +0900
+
+    support phi expression
+
+ lib/Core/Converter.cpp | 24 ++++++++++++++----------
+ 1 file changed, 14 insertions(+), 10 deletions(-)
+
+commit 1017bdeddc4c68419c196f1597e71076ee1ae0e8
+Author: iwancof <rock.iwancof@gmail.com>
+Date:   Wed Nov 5 23:20:17 2025 +0900
+
+    dots remove
+
+ Dockerfile             |  3 ++-
+ lib/Core/Converter.cpp | 16 ++++++++++++++++
+ 2 files changed, 18 insertions(+), 1 deletion(-)
+
+commit c5a3853aa673663827c1b0b79e256a9d2e31e62a
+Author: iwancof <rock.iwancof@gmail.com>
+Date:   Wed Nov 5 21:27:27 2025 +0900
+
+    include dots
+
+ lib/Core/Converter.cpp | 80 ++++++++++++++++++++++++++++++--------------------
+ 1 file changed, 48 insertions(+), 32 deletions(-)
+
+commit 966c5eecbddd09791c8af7e645843dafe3f06761
+Author: iwancof <rock.iwancof@gmail.com>
+Date:   Thu Oct 30 15:50:06 2025 +0900
+
+    fix bugs
+
+ include/llvm2kittel/Converter.h |    4 +-
+ lib/Core/Converter.cpp          |  161 +++-
+ lib/IntTRS/Constraint.cpp       | 1473 ++++++++++++++++--------------------
+ lib/Transform/InstNamer.cpp     |  127 ++--
+ tools/llvm2kittel.cpp           | 1593 ++++++++++++++++++++++-----------------
+ 5 files changed, 1735 insertions(+), 1623 deletions(-)
+
+commit fc767435c6379191e456dbd118ed00ed014500b9
+Author: iwancof <rock.iwancof@gmail.com>
+Date:   Tue Oct 28 09:51:31 2025 +0900
+
+    add ERROR block
+
+ lib/Core/Converter.cpp | 19 +++++++++++++------
+ 1 file changed, 13 insertions(+), 6 deletions(-)
+
+commit 8cbd69744ae499556488ada3e1de0d23c200e5f5
+Author: iwancof <rock.iwancof@gmail.com>
+Date:   Fri Oct 24 19:03:01 2025 +0900
+
+    fix broken blocks
+
+ include/llvm2kittel/Converter.h |  3 +++
+ lib/Core/Converter.cpp          | 28 ++++++++++++++++++----------
+ llvm2kittel                     | 31 ++++++++++++++++++++++++++-----
+ 3 files changed, 47 insertions(+), 15 deletions(-)
+
+commit 7c62ff10d72129ae20dd3a3bbf747f25ce2c50af
+Author: iwancof <rock.iwancof@gmail.com>
+Date:   Wed Oct 22 19:06:26 2025 +0900
+
+    create reach_error block
+
+ include/llvm2kittel/Converter.h |  516 +--
+ lib/Core/Converter.cpp          | 7110 +++++++++++++++++++--------------------
+ llvm2kittel                     |  123 +
+ 3 files changed, 3925 insertions(+), 3824 deletions(-)
