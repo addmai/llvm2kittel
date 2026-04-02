@@ -311,7 +311,7 @@ void Converter::phase1(
           bool isIntegerArray = varType->getArrayElementType()->isIntegerTy();
           if (isIntegerArray && GV.hasInitializer() &&
               llvm::isa<llvm::ConstantAggregateZero>(const_cast<llvm::Constant *>(GV.getInitializer()))) {
-            globalInsts.push_back(arrayName + " := const_array(0);");
+            globalInsts.push_back(arrayName + " := nondet();");
           } else {
             globalInsts.push_back("v" + varName + " := nondet();");
           }
