@@ -62,7 +62,8 @@ public:
             bool onlyLoopConditions,
             DivRemConstraintType divisionConstraintType, bool bitwiseConditions,
             bool complexityTuples, const bool t2Output, bool signednessInfo,
-            bool nondetTypeInfo, bool unreachableExit, bool ignoreReachError);
+            bool nondetTypeInfo, bool unreachableExit, bool ignoreReachError
+            , std::set<std::string> allocatedMemoryNames);
   //</Negar>
 
   void phase1(
@@ -337,6 +338,8 @@ private:
       m_currentBlockReachErrorCalled; // Local: track if called in current block
 
   const bool m_ignoreReachError; // If true, ignore reach_error() calls
+
+  const std::set<std::string> m_allocatedMemoryNames; // Set of var names for allocated memory
 
 private:
   Converter(const Converter &);

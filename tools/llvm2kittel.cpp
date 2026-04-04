@@ -248,6 +248,11 @@ static cl::opt<bool> ignoreReachError(
         "False: generate ERROR state and transitions (for safety analysis)."),
     cl::init(false)); // Default is false (safety analysis)
 //</Negar>
+static cl::opt<std::string>
+    allocatedMemoryInfo(
+        "allocated-memory-info",
+        cl::desc("Path to file containing allocated memory information for Ptr2Arr transformation"),
+        cl::init(std::string()));
 
 void printSourceInfo(llvm::Module *module);
 void printLLVMVarToC(llvm::Module *module);
@@ -880,6 +885,29 @@ int main(int argc, char *argv[]) {
 #endif
   }
 
+  // convert allocated memory info file to set<std::string> as memory ids
+  std::set<std::string> allocatedMemoryNames;
+  if (!allocatedMemoryInfo.empty()) {
+      std::ifstream infile(allocatedMemoryInfo);
+      if (!infile.is_open()) {
+        allocatedMemoryNames = std::set<std::string>();
+      }
+      std::string line;
+      while (std::getline(infile, line)) {
+        try {
+            // ! we assume that the file contains the names of the allocated memory (e.g., the name of the alloca instruction or the global variable)
+            allocatedMemoryNames.insert(line);
+        } catch (const std::invalid_argument &e) {
+            std::cerr << "Invalid line in allocated memory info file: " << line
+                    << std::endl;
+            return 9;
+        }
+      }
+      infile.close();
+  }else{
+    allocatedMemoryNames = std::set<std::string>();
+  }
+
   // check for junk
   std::list<llvm::Instruction *> unsuitable = checker.getUnsuitableInsts();
   if (!unsuitable.empty()) {
@@ -1024,7 +1052,7 @@ int main(int argc, char *argv[]) {
           boundedIntegers, unsignedEncoding, onlyLoopConditions,
           divisionConstraintType, bitwiseConditions,
           complexityTuples || uniformComplexityTuples, t2Output, signednessInfo,
-          nondetTypeInfo, unreachableExit, ignoreReachError);
+          nondetTypeInfo, unreachableExit, ignoreReachError, allocatedMemoryNames);
       //</Negar>
       std::map<llvm::Function *, MayMustMap>::iterator tmp1 = mmMap.find(curr);
       if (tmp1 == mmMap.end()) {
