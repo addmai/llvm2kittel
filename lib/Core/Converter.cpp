@@ -98,7 +98,7 @@ Converter::Converter(const llvm::Type *boolType, bool assumeIsControl,
                      bool bitwiseConditions, bool complexityTuples,
                      const bool t2Output, bool signednessInfo,
                      bool nondetTypeInfo, bool unreachableExit,
-                     bool ignoreReachError)
+                     bool ignoreReachError, std::set<std::string> allocatedMemoryNames)
     : m_entryBlock(NULL), m_boolType(boolType), m_blockRules(), m_rules(),
       m_vars(), m_lhs(), m_counter(0), m_phase1(true), m_globals(), m_mmMap(),
       m_funcMayZap(), m_tfMap(), m_elcMap(), m_returns(), m_idMap(), m_phiMap(),
@@ -113,7 +113,8 @@ Converter::Converter(const llvm::Type *boolType, bool assumeIsControl,
       m_complexityTuples(complexityTuples), m_complexityLHSs(),
       m_t2Output(t2Output), m_reachErrorCalled(false),
       m_currentBlockReachErrorCalled(false),
-      m_ignoreReachError(ignoreReachError), signednessInfo(signednessInfo),
+      m_ignoreReachError(ignoreReachError), m_allocatedMemoryNames(allocatedMemoryNames),
+      signednessInfo(signednessInfo),
       nondetTypeInfo(nondetTypeInfo), unreachableExit(unreachableExit) {}
 //</Negar>
 
@@ -310,7 +311,9 @@ void Converter::phase1(
           // Check if this is an integer array and zero-initialized
           bool isIntegerArray = varType->getArrayElementType()->isIntegerTy();
           if (isIntegerArray && GV.hasInitializer() &&
-              llvm::isa<llvm::ConstantAggregateZero>(const_cast<llvm::Constant *>(GV.getInitializer()))) {
+              llvm::isa<llvm::ConstantAggregateZero>(const_cast<llvm::Constant *>(GV.getInitializer())) &&
+              m_allocatedMemoryNames.find(varName) == m_allocatedMemoryNames.end()
+            ) {
             globalInsts.push_back(arrayName + " := const_array(0);");
           } else {
             globalInsts.push_back("v" + varName + " := nondet();");
