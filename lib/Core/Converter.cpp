@@ -2768,15 +2768,22 @@ void Converter::visitCallInst(llvm::CallInst &I) {
         if (m_t2Output) {
           //<Negar>
           if (nondetTypeInfo) {
-            llvm::Function *calledFunc = I.getCalledFunction();
-            if (calledFunc) {
-              std::string funcName = calledFunc->getName().str();
-              const std::string prefix = "__VERIFIER_nondet_";
-              if (funcName.find(prefix) == 0) {
-                std::string typeSuffix = funcName.substr(prefix.size());
-                std::cout << (getVar(&I)) << " := nondet_" + typeSuffix + "();"
-                          << std::endl;
-              }
+            // The callee is looked through casts, so that a call of a function used at another type
+            // than its declaration (`call i16 bitcast (i32 (...)* @f to i16 ()*)()`) is still
+            // recognised by its name. Every external call defines its value: one whose name carries
+            // no type is an unconstrained `nondet()`, as without type information; printing nothing
+            // left the value unassigned, so each later call reused the first call's value.
+            llvm::Function *calledFunc = llvm::dyn_cast<llvm::Function>(
+                callSite.getCalledValue()->stripPointerCasts());
+            const std::string prefix = "__VERIFIER_nondet_";
+            std::string funcName =
+                calledFunc != NULL ? calledFunc->getName().str() : std::string();
+            if (funcName.find(prefix) == 0) {
+              std::string typeSuffix = funcName.substr(prefix.size());
+              std::cout << (getVar(&I)) << " := nondet_" + typeSuffix + "();"
+                        << std::endl;
+            } else {
+              std::cout << (getVar(&I)) << " := nondet();" << std::endl;
             }
           } else {
             //</Negar>
